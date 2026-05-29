@@ -6,7 +6,7 @@ import Login from './components/Login.jsx';
 import ParticipantModal from './components/ParticipantModal.jsx';
 import PhotoModal from './components/PhotoModal.jsx';
 import {
-  IconBadge, IconImport, IconExport, IconPlus, IconSearch, IconReset,
+  IconImport, IconExport, IconPlus, IconSearch, IconReset,
   IconCheck, IconSquare, IconEdit, IconLogout,
 } from './icons.jsx';
 
@@ -155,7 +155,7 @@ function Credenciamento({ operador, onLogout }) {
       <header className="app-header">
         <div className="app-header-inner">
           <div className="brand">
-            <div className="logo"><IconBadge /></div>
+            <img className="brand-logo" src="/thb-logo.png" alt="Time Holding Brasil" />
             <div>
               <h1>Credenciamento CHF 2026</h1>
               <p>Clínica do Holding Familiar · Goiânia</p>

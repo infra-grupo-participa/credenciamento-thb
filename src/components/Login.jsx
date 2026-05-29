@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { api, auth } from '../api.js';
-import { IconBadge } from '../icons.jsx';
 
 const MENSAGENS = {
   senha_invalida: 'Senha incorreta.',
@@ -31,7 +30,7 @@ export default function Login({ onLogin }) {
   return (
     <div className="login-overlay">
       <form className="login-card" onSubmit={submit}>
-        <div className="logo"><IconBadge /></div>
+        <img className="brand-logo-lg" src="/thb-logo.png" alt="Time Holding Brasil" />
         <h2>Credenciamento CHF 2026</h2>
         <p className="sub">Entre para começar o atendimento</p>
         <div className="field">
