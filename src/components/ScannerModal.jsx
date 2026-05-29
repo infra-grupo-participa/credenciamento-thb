@@ -6,7 +6,7 @@ import { IconClose } from '../icons.jsx';
 export default function ScannerModal({ onDetected, onClose }) {
   const videoRef = useRef(null);
   const rafRef = useRef(0);
-  const last = useRef({ id: null, t: 0 });
+  const last = useRef(null); // trava no último id lido até aparecer um diferente
   const busy = useRef(false);
   const [erro, setErro] = useState('');
   const [msg, setMsg] = useState('Aponte a câmera para o QR do crachá');
@@ -29,9 +29,8 @@ export default function ScannerModal({ onDetected, onClose }) {
         const code = jsQR(img.data, img.width, img.height);
         if (code && code.data) {
           const id = code.data.trim();
-          const now = Date.now();
-          if (id !== last.current.id || now - last.current.t > 2500) {
-            last.current = { id, t: now };
+          if (id && id !== last.current) {   // só processa QR diferente do último
+            last.current = id;
             handle(id);
           }
         }

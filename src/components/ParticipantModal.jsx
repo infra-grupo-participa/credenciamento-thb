@@ -10,7 +10,7 @@ const VAZIO = {
   tipo: 'comum', convidadoPor: '',
 };
 
-export default function ParticipantModal({ participant, eventoId, onClose }) {
+export default function ParticipantModal({ participant, eventoId, nomeInicial = '', onClose }) {
   const isNew = !participant;
   const qc = useQueryClient();
   const toast = useToast();
@@ -24,7 +24,7 @@ export default function ParticipantModal({ participant, eventoId, onClose }) {
   useEffect(() => {
     full.current = null;
     setFoto(''); fotoOriginal.current = '';
-    if (isNew) { setForm(VAZIO); return; }
+    if (isNew) { setForm({ ...VAZIO, nome: nomeInicial || '' }); return; }
     setForm({ ...VAZIO, ...participant });
     // Carrega o detalhe completo para não perder campos fora da lista leve.
     api.detalhe(participant.id).then((d) => {

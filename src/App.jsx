@@ -54,6 +54,7 @@ function Credenciamento({ operador, onLogout }) {
   const [busca, setBusca] = useState('');
   const [ordem, setOrdem] = useState('nome');
   const [editando, setEditando] = useState(undefined);
+  const [novoNome, setNovoNome] = useState('');
   const [detalheId, setDetalheId] = useState(null);
   const [histOpen, setHistOpen] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
@@ -212,7 +213,7 @@ function Credenciamento({ operador, onLogout }) {
     try {
       const det = await api.detalhe(id);
       if (det.credenciado) {
-        beepOk(); toast(`${det.nome} já estava credenciado`, 'success');
+        beepOk(); // confirma a leitura, sem toast global (evita aviso repetido)
         return { ok: true, msg: `${det.nome} — já credenciado` };
       }
       await api.credenciar(id, true);
@@ -243,7 +244,7 @@ function Credenciamento({ operador, onLogout }) {
             {!readOnly && <button className="btn ghost" onClick={abrirImport} title="Importar JSON"><IconImport /> Importar</button>}
             <button className="btn ghost" onClick={() => setDashOpen(true)} title="Painel do evento">📊 Painel</button>
             <button className="btn ghost" onClick={exportar} title="Exportar JSON"><IconExport /> Exportar</button>
-            {!readOnly && <button className="btn primary" onClick={() => setEditando(null)}><IconPlus /> Novo participante</button>}
+            {!readOnly && <button className="btn primary" onClick={() => { setNovoNome(''); setEditando(null); }}><IconPlus /> Novo participante</button>}
             <span className="op-chip"><span className="who">{operador}</span>
               <button className="logout" title="Sair" onClick={onLogout}><IconLogout /></button></span>
           </div>
@@ -341,14 +342,22 @@ function Credenciamento({ operador, onLogout }) {
           </div>
         </div>
         {!isLoading && filtrada.length === 0 && (
-          <div className="empty"><IconSearch /><div>Nenhum participante encontrado.</div></div>
+          <div className="empty">
+            <IconSearch />
+            <div>Nenhum participante encontrado{busca ? ` para "${busca}"` : ''}.</div>
+            {busca.trim() && !readOnly && (
+              <button className="btn primary" style={{ marginTop: 14 }} onClick={() => { setNovoNome(busca.trim()); setEditando(null); }}>
+                <IconPlus /> Cadastrar "{busca.trim()}" neste evento
+              </button>
+            )}
+          </div>
         )}
       </main>
 
       <input ref={fileRef} type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={onImportFile} />
 
       {editando !== undefined && (
-        <ParticipantModal participant={editando} eventoId={eventoId} onClose={() => setEditando(undefined)} />
+        <ParticipantModal participant={editando} eventoId={eventoId} nomeInicial={novoNome} onClose={() => setEditando(undefined)} />
       )}
       {detalheId && (
         <DetailModal participantId={detalheId}
