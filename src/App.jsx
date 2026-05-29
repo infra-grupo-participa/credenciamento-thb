@@ -9,6 +9,7 @@ import EventBar from './components/EventBar.jsx';
 import HistoryModal from './components/HistoryModal.jsx';
 import ScannerModal from './components/ScannerModal.jsx';
 import { beepOk, beepErr } from './beep.js';
+import { enfileirar, flushFila, tamanhoFila } from './offline.js';
 import { tipoLabel, tipoCls } from './tipos.js';
 import {
   IconImport, IconExport, IconPlus, IconSearch, IconCheck, IconSquare, IconEdit, IconLogout,
@@ -55,6 +56,8 @@ function Credenciamento({ operador, onLogout }) {
   const [detalheId, setDetalheId] = useState(null);
   const [histOpen, setHistOpen] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
+  const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
+  const [pendentes, setPendentes] = useState(tamanhoFila());
   const fileRef = useRef(null);
   const searchRef = useRef(null);
 
@@ -69,6 +72,25 @@ function Credenciamento({ operador, onLogout }) {
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // Sincroniza a fila offline quando a conexão volta (e ao abrir).
+  useEffect(() => {
+    async function sincronizar() {
+      const n = await flushFila((id, cred) => api.credenciar(id, cred));
+      setPendentes(tamanhoFila());
+      if (n > 0) {
+        toast(`${n} credenciamento(s) sincronizado(s)`, 'success');
+        qc.invalidateQueries({ queryKey: ['participantes'] });
+        qc.invalidateQueries({ queryKey: ['eventos'] });
+      }
+    }
+    const up = () => { setOnline(true); sincronizar(); };
+    const down = () => setOnline(false);
+    window.addEventListener('online', up);
+    window.addEventListener('offline', down);
+    if (navigator.onLine) sincronizar();
+    return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down); };
   }, []);
 
   const { data: eventosData } = useQuery({ queryKey: ['eventos'], queryFn: api.eventos, refetchInterval: 15000 });
@@ -94,7 +116,16 @@ function Credenciamento({ operador, onLogout }) {
   const lista = data?.list || [];
 
   const credenciarMut = useMutation({
-    mutationFn: ({ id, credenciado }) => api.credenciar(id, credenciado),
+    mutationFn: async ({ id, credenciado }) => {
+      try { return await api.credenciar(id, credenciado); }
+      catch (e) {
+        if (!navigator.onLine || e?.code === 'network') {
+          enfileirar({ id, credenciado }); setPendentes(tamanhoFila());
+          return { offline: true };
+        }
+        throw e;
+      }
+    },
     onMutate: async ({ id, credenciado }) => {
       await qc.cancelQueries({ queryKey: ['participantes', eventoId] });
       const prev = qc.getQueryData(['participantes', eventoId]);
@@ -104,9 +135,10 @@ function Credenciamento({ operador, onLogout }) {
       return { prev };
     },
     onError: (_e, _v, ctx) => { if (ctx?.prev) qc.setQueryData(['participantes', eventoId], ctx.prev); beepErr(); toast('Erro ao salvar', 'danger'); },
-    onSuccess: (_d, { credenciado, nome }) => {
+    onSuccess: (d, { credenciado, nome }) => {
       if (credenciado) beepOk();
-      toast(credenciado ? `✓ ${nome} credenciado(a)!` : `${nome} marcado como pendente`, credenciado ? 'success' : '');
+      if (d && d.offline) toast(`✓ ${nome} (salvo offline — sincroniza ao reconectar)`, 'success');
+      else toast(credenciado ? `✓ ${nome} credenciado(a)!` : `${nome} marcado como pendente`, credenciado ? 'success' : '');
     },
     onSettled: () => { qc.invalidateQueries({ queryKey: ['participantes', eventoId] }); qc.invalidateQueries({ queryKey: ['eventos'] }); },
   });
@@ -224,6 +256,13 @@ function Credenciamento({ operador, onLogout }) {
             const ativo = eventos.filter((e) => !e.arquivado).sort((a, b) => a.ordem - b.ordem)[0];
             if (ativo) setEventoId(ativo.id);
           }}>Voltar aos eventos ativos</button>
+        </div>
+      )}
+
+      {(!online || pendentes > 0) && (
+        <div className="offline-banner">
+          {!online && <span>⚠ Sem conexão — credenciamentos ficam salvos no aparelho.</span>}
+          {pendentes > 0 && <span> {pendentes} pendente(s) de sincronização.</span>}
         </div>
       )}
 

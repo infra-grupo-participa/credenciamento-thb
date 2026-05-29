@@ -30,11 +30,16 @@ async function request(path, { method = 'GET', body } = {}) {
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (auth.token) headers['Authorization'] = `Bearer ${auth.token}`;
 
-  const res = await fetch(`/api${path}`, {
-    method,
-    headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  let res;
+  try {
+    res = await fetch(`/api${path}`, {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    throw new ApiError('network', 0); // falha de rede (offline)
+  }
 
   if (res.status === 401) {
     auth.clear();
