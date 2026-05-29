@@ -1,5 +1,9 @@
 node_modules/
-dist/
 .env
 *.log
 .DS_Store
+
+# Obs: a pasta dist/ (build do front) é versionada de propósito.
+# A Hostinger roda o build numa etapa separada do runtime e não leva os
+# artefatos adiante, então commitamos o dist para o servidor sempre encontrá-lo.
+# Ao alterar o front, rode "npm run build" e commite o dist atualizado.
