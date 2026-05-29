@@ -9,6 +9,7 @@ import EventBar from './components/EventBar.jsx';
 import HistoryModal from './components/HistoryModal.jsx';
 import ScannerModal from './components/ScannerModal.jsx';
 import DashboardModal from './components/DashboardModal.jsx';
+import SettingsModal from './components/SettingsModal.jsx';
 import { beepOk, beepErr } from './beep.js';
 import { enfileirar, flushFila, tamanhoFila } from './offline.js';
 import { tipoLabel, tipoCls } from './tipos.js';
@@ -59,6 +60,7 @@ function Credenciamento({ operador, onLogout }) {
   const [histOpen, setHistOpen] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
   const [dashOpen, setDashOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
   const [pendentes, setPendentes] = useState(tamanhoFila());
   const fileRef = useRef(null);
@@ -245,6 +247,7 @@ function Credenciamento({ operador, onLogout }) {
             <button className="btn ghost" onClick={() => setDashOpen(true)} title="Painel do evento">📊 Painel</button>
             <button className="btn ghost" onClick={exportar} title="Exportar JSON"><IconExport /> Exportar</button>
             {!readOnly && <button className="btn primary" onClick={() => { setNovoNome(''); setEditando(null); }}><IconPlus /> Novo participante</button>}
+            <button className="btn ghost" onClick={() => setSettingsOpen(true)} title="Configurações">⚙</button>
             <span className="op-chip"><span className="who">{operador}</span>
               <button className="logout" title="Sair" onClick={onLogout}><IconLogout /></button></span>
           </div>
@@ -379,6 +382,7 @@ function Credenciamento({ operador, onLogout }) {
       )}
       {scanOpen && <ScannerModal onDetected={aoEscanear} onClose={() => setScanOpen(false)} />}
       {dashOpen && <DashboardModal eventoId={eventoId} eventoNome={eventoAtual?.nome || ''} lista={lista} onClose={() => setDashOpen(false)} />}
+      {settingsOpen && <SettingsModal eventos={eventos} onClose={() => setSettingsOpen(false)} />}
     </>
   );
 }

@@ -51,19 +51,72 @@ function auth(req, res, next) {
   next();
 }
 
+const sha256 = (s) => crypto.createHash('sha256').update(String(s)).digest('hex');
+
+// Senha do evento: usa a salva no painel (app_config 'auth'), senão a do ambiente.
+async function senhaValida(senha) {
+  try {
+    const cfg = await db.repo.getConfig('auth');
+    if (cfg && cfg.senhaHash) return sha256(senha) === cfg.senhaHash;
+  } catch { /* cai para a do ambiente */ }
+  return !!ACCESS_PASSWORD && senha === ACCESS_PASSWORD;
+}
+
 /* ============================== ROTAS API ============================== */
 const api = express.Router();
 
 // Login: nome do operador + senha do evento -> token.
-api.post('/login', (req, res) => {
+api.post('/login', async (req, res) => {
   const operador = String(req.body.operador || '').trim().slice(0, 120);
   const senha = String(req.body.senha || '');
   if (!operador) return res.status(400).json({ error: 'informe_o_nome' });
-  if (!ACCESS_PASSWORD || senha !== ACCESS_PASSWORD) {
-    return res.status(401).json({ error: 'senha_invalida' });
-  }
+  if (!(await senhaValida(senha))) return res.status(401).json({ error: 'senha_invalida' });
   const token = signToken({ operador, iat: Date.now() });
   res.json({ token, operador });
+});
+
+// Lista pública de operadores (apenas nomes) — usada como sugestão no login.
+api.get('/operadores', async (req, res) => {
+  try {
+    const v = await db.repo.getConfig('operadores');
+    res.json({ operadores: Array.isArray(v) ? v : [] });
+  } catch {
+    res.json({ operadores: [] });
+  }
+});
+
+// Trocar a senha do evento (salva no painel).
+api.post('/senha', auth, async (req, res) => {
+  const nova = String(req.body.senha || '');
+  if (nova.length < 4) return res.status(400).json({ error: 'senha_curta' });
+  try {
+    await db.repo.setConfig('auth', { senhaHash: sha256(nova) });
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'senha_failed' });
+  }
+});
+
+// CRUD de eventos (criar / atualizar) — gestão pelo painel.
+api.post('/eventos', auth, async (req, res) => {
+  try {
+    const ev = await db.repo.criarEvento(req.body);
+    if (!ev) return res.status(400).json({ error: 'nome_obrigatorio' });
+    res.status(201).json(ev);
+  } catch (e) {
+    console.error(e.message);
+    res.status(500).json({ error: 'evento_create_failed' });
+  }
+});
+api.put('/eventos/:id', auth, async (req, res) => {
+  try {
+    const ev = await db.repo.atualizarEvento(req.params.id, req.body);
+    if (!ev) return res.status(404).json({ error: 'nao_encontrado' });
+    res.json(ev);
+  } catch (e) {
+    console.error(e.message);
+    res.status(500).json({ error: 'evento_update_failed' });
+  }
 });
 
 // Verifica se o token ainda é válido (usado ao abrir o app).

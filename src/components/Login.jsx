@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api, auth } from '../api.js';
 
 const MENSAGENS = {
@@ -11,6 +11,9 @@ export default function Login({ onLogin }) {
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState('');
   const [enviando, setEnviando] = useState(false);
+  const [ops, setOps] = useState([]);
+
+  useEffect(() => { api.operadoresPublicos().then((r) => setOps(r.operadores || [])).catch(() => {}); }, []);
 
   async function submit(e) {
     e.preventDefault();
@@ -36,7 +39,8 @@ export default function Login({ onLogin }) {
         <div className="field">
           <label>Seu nome (operador)</label>
           <input value={operador} onChange={(e) => setOperador(e.target.value)}
-            autoComplete="name" placeholder="Ex: Marcio" autoFocus required />
+            list="lista-operadores" autoComplete="off" placeholder="Ex: Marcio" autoFocus required />
+          <datalist id="lista-operadores">{ops.map((n) => <option key={n} value={n} />)}</datalist>
         </div>
         <div className="field">
           <label>Senha do evento</label>

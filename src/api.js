@@ -60,6 +60,10 @@ export const api = {
   me: () => request('/me'),
 
   eventos: () => request('/eventos'),
+  criarEvento: (ev) => request('/eventos', { method: 'POST', body: ev }),
+  atualizarEvento: (id, ev) => request(`/eventos/${encodeURIComponent(id)}`, { method: 'PUT', body: ev }),
+  operadoresPublicos: () => request('/operadores'),
+  trocarSenha: (senha) => request('/senha', { method: 'POST', body: { senha } }),
   listar: (eventoId) => request(`/participantes?evento=${encodeURIComponent(eventoId)}`),
   detalhe: (id) => request(`/participantes/${encodeURIComponent(id)}`),
   historico: (id) => request(`/participantes/${encodeURIComponent(id)}/historico`),

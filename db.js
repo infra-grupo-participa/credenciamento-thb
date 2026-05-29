@@ -82,6 +82,28 @@ const repo = {
     return unwrap(await sb().from('vw_eventos').select('*').order('ordem', { ascending: true }));
   },
 
+  async criarEvento(ev) {
+    const slug = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
+    const nome = String(ev.nome || '').slice(0, 200).trim();
+    if (!nome) return null;
+    const id = (String(ev.id || '').trim() || `${slug(nome)}-${Date.now().toString(36).slice(-4)}`).slice(0, 64);
+    const row = {
+      id, nome,
+      tipo: ['imersao', 'clinica', 'passado'].includes(ev.tipo) ? ev.tipo : 'clinica',
+      ordem: Number(ev.ordem) || 0, data: ev.data || null,
+      ativo: ev.ativo !== false, arquivado: !!ev.arquivado,
+    };
+    return unwrap(await sb().from('eventos').insert(row).select('*').single());
+  },
+
+  async atualizarEvento(id, ev) {
+    const campos = {};
+    for (const k of ['nome', 'tipo', 'ordem', 'data', 'ativo', 'arquivado']) if (k in ev) campos[k] = ev[k];
+    const data = unwrap(await sb().from('eventos').update(campos).eq('id', id).select('*'));
+    return data[0] || null;
+  },
+
   async listar(eventoId) {
     let q = sb().from(TABELA).select(LIGHT).order('nome', { ascending: true });
     if (eventoId) q = q.eq('evento_id', eventoId);
