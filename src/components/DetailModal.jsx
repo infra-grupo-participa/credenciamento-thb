@@ -120,6 +120,15 @@ export default function DetailModal({ participantId, eventos = [], readOnly, onC
     w.document.close();
   }
 
+  function mensagemQR() {
+    const link = `${window.location.origin}/qr/${p.id}`;
+    return `Olá ${p.nome}! 👋 Para agilizar seu credenciamento, salve seu QR de acesso: ${link} — é só mostrar na entrada. Time Holding Brasil.`;
+  }
+  async function copiarWhats() {
+    try { await navigator.clipboard.writeText(mensagemQR()); toast('Mensagem copiada — cole no WhatsApp', 'success'); }
+    catch { toast('Não consegui copiar', 'danger'); }
+  }
+
   async function toggleFixo(k) {
     const novos = fixos.includes(k) ? fixos.filter((x) => x !== k) : [...fixos, k];
     setFixos(novos);
@@ -193,8 +202,12 @@ export default function DetailModal({ participantId, eventos = [], readOnly, onC
                 <div className="qr-row">
                   <img className="qr-img" src={qr} alt="QR do crachá" />
                   <div className="qr-info">
-                    <div className="qr-hint">QR do crachá (use no leitor para credenciar em segundos)</div>
-                    {!readOnly && <button className="btn" onClick={imprimirCracha}>Imprimir crachá</button>}
+                    <div className="qr-hint">QR de credenciamento — envie ao participante ou use no leitor.</div>
+                    <div className="qr-btns">
+                      <button className="btn" onClick={copiarWhats}>Copiar msg WhatsApp</button>
+                      {tel && <a className="btn ghost" href={`https://wa.me/${tel}?text=${encodeURIComponent(mensagemQR())}`} target="_blank" rel="noopener noreferrer">Abrir WhatsApp</a>}
+                      {!readOnly && <button className="btn ghost" onClick={imprimirCracha}>Imprimir crachá</button>}
+                    </div>
                   </div>
                 </div>
               )}

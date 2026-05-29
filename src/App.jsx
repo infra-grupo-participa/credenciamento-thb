@@ -214,19 +214,20 @@ function Credenciamento({ operador, onLogout }) {
   async function aoEscanear(id) {
     try {
       const det = await api.detalhe(id);
+      const foto = det.temFoto ? await api.getFoto(id).then((r) => r.foto || '').catch(() => '') : '';
       if (det.credenciado) {
-        beepOk(); // confirma a leitura, sem toast global (evita aviso repetido)
-        return { ok: true, msg: `${det.nome} — já credenciado` };
+        beepOk();
+        return { status: 'duplicado', nome: det.nome, tipo: det.tipo, turma: det.turma, foto };
       }
       await api.credenciar(id, true);
-      beepOk(); toast(`✓ ${det.nome} credenciado(a)!`, 'success');
+      beepOk();
       qc.invalidateQueries({ queryKey: ['participantes', det.evento_id] });
       qc.invalidateQueries({ queryKey: ['participantes', eventoId] });
       qc.invalidateQueries({ queryKey: ['eventos'] });
-      return { ok: true, msg: `✓ ${det.nome} credenciado` };
+      return { status: 'ok', nome: det.nome, tipo: det.tipo, turma: det.turma, foto };
     } catch {
       beepErr();
-      return { ok: false, msg: 'QR não reconhecido' };
+      return { status: 'erro', nome: 'QR não reconhecido' };
     }
   }
 

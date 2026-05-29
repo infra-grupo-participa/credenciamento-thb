@@ -5,6 +5,7 @@ require('dotenv').config();
 const path = require('path');
 const crypto = require('crypto');
 const express = require('express');
+const QRCode = require('qrcode');
 const db = require('./db');
 
 const app = express();
@@ -300,6 +301,32 @@ app.use('/api', api);
 
 /* ==================== FRONT-END (build do Vite em /dist) ==================== */
 const DIST = path.join(__dirname, 'dist');
+
+// Página pública do QR do participante (para enviar ao aluno por WhatsApp).
+app.get('/qr/:id', async (req, res) => {
+  const esc = (s) => String(s || '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  try {
+    let nome = '';
+    try { const p = await db.repo.detalhe(req.params.id); if (p) nome = p.nome; } catch { /* segue */ }
+    const dataUrl = await QRCode.toDataURL(String(req.params.id), { margin: 1, width: 320 });
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    res.send(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>Seu QR — Credenciamento THB</title>
+      <style>body{margin:0;font-family:Inter,system-ui,Arial,sans-serif;background:#f4f5f7;color:#1d1d1b;
+      display:flex;min-height:100vh;align-items:center;justify-content:center;padding:24px}
+      .card{background:#fff;border:1px solid #e5e7ec;border-radius:18px;box-shadow:0 12px 30px rgba(29,29,27,.1);padding:28px;text-align:center;max-width:360px;width:100%}
+      .sub{color:#ef7c00;font-weight:700;font-size:13px}h1{font-size:22px;margin:8px 0 2px}
+      p{color:#6f7682;font-size:14px;margin:6px 0 18px}img{width:280px;height:280px}</style></head>
+      <body><div class="card"><div class="sub">TIME HOLDING BRASIL</div>
+      <h1>${esc(nome) || 'Seu credenciamento'}</h1>
+      <p>Mostre este QR na entrada para credenciar mais rápido.</p>
+      <img src="${dataUrl}" alt="QR de credenciamento"/></div></body></html>`);
+  } catch {
+    res.status(404).send('QR não encontrado');
+  }
+});
+
 app.use(express.static(DIST));
 
 // Fallback SPA: qualquer rota que não seja /api devolve o index.html.

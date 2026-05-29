@@ -1,16 +1,27 @@
 import { useEffect, useRef, useState } from 'react';
 import jsQR from 'jsqr';
+import { tipoLabel, tipoCls } from '../tipos.js';
 import { IconClose } from '../icons.jsx';
 
-// Leitor de QR pela câmera. onDetected(id) -> Promise<{ok, msg}>.
+const initials = (n) => {
+  if (!n) return '?';
+  const p = n.trim().split(/\s+/);
+  return ((p[0][0] || '') + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase();
+};
+const STATUS = {
+  ok: { cls: 'ok', txt: 'Credenciado ✓' },
+  duplicado: { cls: 'dup', txt: 'Já estava credenciado' },
+  erro: { cls: 'err', txt: 'QR não reconhecido' },
+};
+
+// Scanner em modo quiosque: leitura contínua de QR com confirmação visual grande.
 export default function ScannerModal({ onDetected, onClose }) {
   const videoRef = useRef(null);
   const rafRef = useRef(0);
-  const last = useRef(null); // trava no último id lido até aparecer um diferente
+  const last = useRef(null);
   const busy = useRef(false);
   const [erro, setErro] = useState('');
-  const [msg, setMsg] = useState('Aponte a câmera para o QR do crachá');
-  const [tone, setTone] = useState('');
+  const [res, setRes] = useState(null);
 
   useEffect(() => {
     let stream;
@@ -29,43 +40,50 @@ export default function ScannerModal({ onDetected, onClose }) {
         const code = jsQR(img.data, img.width, img.height);
         if (code && code.data) {
           const id = code.data.trim();
-          if (id && id !== last.current) {   // só processa QR diferente do último
-            last.current = id;
-            handle(id);
-          }
+          if (id && id !== last.current) { last.current = id; handle(id); }
         }
       }
       rafRef.current = requestAnimationFrame(loop);
     }
     async function handle(id) {
       busy.current = true;
-      setMsg('Lendo…'); setTone('');
-      try {
-        const r = await onDetected(id);
-        setMsg(r?.msg || ''); setTone(r?.ok ? 'ok' : 'err');
-      } catch {
-        setMsg('Erro ao processar'); setTone('err');
-      }
-      setTimeout(() => { busy.current = false; }, 1200);
+      try { setRes(await onDetected(id)); } catch { setRes({ status: 'erro', nome: 'Erro ao processar' }); }
+      setTimeout(() => { busy.current = false; }, 1000);
     }
     return () => { cancelAnimationFrame(rafRef.current); if (stream) stream.getTracks().forEach((t) => t.stop()); };
   }, [onDetected]);
 
+  const st = res && (STATUS[res.status] || STATUS.erro);
+
   return (
     <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal" role="dialog" aria-modal="true" style={{ maxWidth: 460 }}>
+      <div className="modal modal-lg scanner-modal" role="dialog" aria-modal="true">
         <div className="modal-head">
-          <h3>Ler QR do crachá</h3>
+          <h3>Credenciamento por QR</h3>
           <button className="icon-btn" onClick={onClose} title="Fechar"><IconClose /></button>
         </div>
         <div className="modal-body">
           {erro ? <div className="photo-empty">{erro}</div> : (
-            <div className="scan-wrap">
-              <video ref={videoRef} autoPlay playsInline muted className="scan-video" />
-              <div className="scan-frame" />
+            <div className="scan-grid">
+              <div className="scan-wrap">
+                <video ref={videoRef} autoPlay playsInline muted className="scan-video" />
+                <div className="scan-frame" />
+              </div>
+              <div className={`scan-result ${res ? st.cls : ''}`}>
+                {!res && <div className="scan-hint">Aponte a câmera para o QR do crachá/celular.</div>}
+                {res && (
+                  <>
+                    {res.foto
+                      ? <img className="scan-foto" src={res.foto} alt={res.nome} />
+                      : <div className={`scan-foto scan-foto-ph avatar-${res.tipo ? tipoCls(res.tipo) : 'comum'}`}>{res.status === 'erro' ? '!' : initials(res.nome)}</div>}
+                    <div className="scan-nome">{res.nome}</div>
+                    {res.tipo && <span className={`tbadge tbadge-${tipoCls(res.tipo)}`}>{tipoLabel(res.tipo)}{res.turma ? ` · ${res.turma}` : ''}</span>}
+                    <div className={`scan-status ${st.cls}`}>{st.txt}</div>
+                  </>
+                )}
+              </div>
             </div>
           )}
-          <div className={`scan-msg ${tone}`}>{msg}</div>
         </div>
         <div className="modal-foot">
           <button type="button" className="btn primary" onClick={onClose}>Fechar</button>

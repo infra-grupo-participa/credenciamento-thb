@@ -274,11 +274,28 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 .scan-msg.ok{color:var(--success)}
 .scan-msg.err{color:var(--danger)}
 
+/* Scanner quiosque */
+.scanner-modal{max-width:860px}
+.scan-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.scan-result{min-height:280px;border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:18px;text-align:center;background:#fff;transition:background .15s}
+.scan-result.ok{background:rgba(31,157,87,.08);border-color:rgba(31,157,87,.4)}
+.scan-result.dup{background:rgba(245,158,11,.10);border-color:rgba(245,158,11,.45)}
+.scan-result.err{background:rgba(226,59,59,.08);border-color:rgba(226,59,59,.4)}
+.scan-hint{color:var(--muted);font-size:14px;max-width:220px}
+.scan-foto{width:120px;height:120px;border-radius:18px;object-fit:cover;border:1px solid var(--line)}
+.scan-foto-ph{display:grid;place-items:center;color:#fff;font-size:42px;font-weight:800}
+.scan-nome{font-size:22px;font-weight:800;line-height:1.15}
+.scan-status{font-size:15px;font-weight:800}
+.scan-status.ok{color:var(--success)} .scan-status.dup{color:var(--warning)} .scan-status.err{color:var(--danger)}
+@media (max-width:640px){.scan-grid{grid-template-columns:1fr}.scan-result{min-height:200px}}
+
 /* QR no detalhe */
 .qr-row{display:flex;gap:14px;align-items:center;background:#f7f8fa;border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:14px}
 .qr-img{width:96px;height:96px;border-radius:8px;background:#fff;border:1px solid var(--line)}
 .qr-info{display:flex;flex-direction:column;gap:8px}
 .qr-hint{font-size:12px;color:var(--muted)}
+.qr-btns{display:flex;gap:6px;flex-wrap:wrap}
+.qr-btns .btn{padding:7px 10px;font-size:12px}
 
 /* Banner offline */
 .offline-banner{max-width:1400px;margin:12px auto 0;padding:10px 16px;border-radius:12px;background:#fff4e0;border:1px solid #ffd58a;color:#8a5200;font-size:13px;font-weight:600;display:flex;gap:8px;flex-wrap:wrap}
