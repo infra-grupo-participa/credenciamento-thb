@@ -7,34 +7,31 @@ import { IconClose } from '../icons.jsx';
 const VAZIO = {
   nome: '', nomeCracha: '', email: '', telefone: '', turma: '', profissao: '',
   tamanhoCamisa: '', dataChegada: '', dataRetorno: '', instrucao: '', observacoes: '',
+  tipo: 'comum', convidadoPor: '',
 };
 
-export default function ParticipantModal({ participant, onClose }) {
+export default function ParticipantModal({ participant, eventoId, onClose }) {
   const isNew = !participant;
   const qc = useQueryClient();
   const toast = useToast();
 
   const [form, setForm] = useState(VAZIO);
+  const full = useRef(null);   // detalhe completo (preserva campos não editáveis)
   const [foto, setFoto] = useState('');
   const fotoOriginal = useRef('');
   const [salvando, setSalvando] = useState(false);
 
-  // Preenche o formulário e carrega a foto sob demanda.
   useEffect(() => {
-    if (isNew) {
-      setForm(VAZIO);
-      setFoto('');
-      fotoOriginal.current = '';
-      return;
-    }
+    full.current = null;
+    setFoto(''); fotoOriginal.current = '';
+    if (isNew) { setForm(VAZIO); return; }
     setForm({ ...VAZIO, ...participant });
-    setFoto('');
-    fotoOriginal.current = '';
-    if (participant.temFoto) {
-      api.getFoto(participant.id)
-        .then((d) => { setFoto(d.foto || ''); fotoOriginal.current = d.foto || ''; })
-        .catch(() => {});
-    }
+    // Carrega o detalhe completo para não perder campos fora da lista leve.
+    api.detalhe(participant.id).then((d) => {
+      full.current = d;
+      setForm((f) => ({ ...VAZIO, ...d, ...f, nome: d.nome ?? f.nome }));
+      if (d.temFoto) api.getFoto(participant.id).then((r) => { setFoto(r.foto || ''); fotoOriginal.current = r.foto || ''; }).catch(() => {});
+    }).catch(() => {});
   }, [participant, isNew]);
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -53,10 +50,10 @@ export default function ParticipantModal({ participant, onClose }) {
     e.preventDefault();
     const nome = form.nome.trim();
     if (!nome) { toast('Informe o nome', 'danger'); return; }
-
     setSalvando(true);
     try {
-      const dados = { ...form, nome };
+      // Mescla: preserva campos do detalhe (documento, cidade, nível...) + edições do form.
+      const dados = { ...(full.current || {}), ...form, nome, evento_id: eventoId };
       let id;
       if (isNew) {
         const criado = await api.criar(dados);
@@ -67,12 +64,11 @@ export default function ParticipantModal({ participant, onClose }) {
         await api.atualizar(id, dados);
         toast('Participante atualizado', 'success');
       }
-      // Salva a foto só se mudou (evita tráfego à toa).
       if (foto !== fotoOriginal.current) await api.setFoto(id, foto);
-
-      await qc.invalidateQueries({ queryKey: ['participantes'] });
+      await qc.invalidateQueries({ queryKey: ['participantes', eventoId] });
+      await qc.invalidateQueries({ queryKey: ['eventos'] });
       onClose();
-    } catch (err) {
+    } catch {
       toast('Erro ao salvar. Tente novamente.', 'danger');
     } finally {
       setSalvando(false);
@@ -85,7 +81,8 @@ export default function ParticipantModal({ participant, onClose }) {
     setSalvando(true);
     try {
       await api.excluir(participant.id);
-      await qc.invalidateQueries({ queryKey: ['participantes'] });
+      await qc.invalidateQueries({ queryKey: ['participantes', eventoId] });
+      await qc.invalidateQueries({ queryKey: ['eventos'] });
       toast('Participante excluído', 'danger');
       onClose();
     } catch {
@@ -113,6 +110,18 @@ export default function ParticipantModal({ participant, onClose }) {
               <div className="field"><label>Turma</label><input value={form.turma} onChange={set('turma')} placeholder="Ex: T37" /></div>
             </div>
             <div className="field-row">
+              <div className="field">
+                <label>Tipo</label>
+                <select value={form.tipo} onChange={set('tipo')}>
+                  <option value="comum">Comum</option>
+                  <option value="socio">Sócio</option>
+                  <option value="diamante">Diamante</option>
+                  <option value="convidado">Convidado</option>
+                </select>
+              </div>
+              <div className="field"><label>Convidado por</label><input value={form.convidadoPor || ''} onChange={set('convidadoPor')} placeholder="Nome de quem convidou" /></div>
+            </div>
+            <div className="field-row">
               <div className="field"><label>E-mail</label><input type="email" value={form.email} onChange={set('email')} /></div>
               <div className="field"><label>Telefone</label><input value={form.telefone} onChange={set('telefone')} /></div>
             </div>
@@ -126,39 +135,25 @@ export default function ParticipantModal({ participant, onClose }) {
                 </select>
               </div>
             </div>
-            <div className="field-row">
-              <div className="field"><label>Data de chegada</label><input value={form.dataChegada} onChange={set('dataChegada')} placeholder="dd/mm/aaaa" /></div>
-              <div className="field"><label>Data de retorno</label><input value={form.dataRetorno} onChange={set('dataRetorno')} placeholder="dd/mm/aaaa" /></div>
-            </div>
             <div className="field"><label>Instrução / nível</label><input value={form.instrucao} onChange={set('instrucao')} placeholder="THB, AURUM, PLATINA…" /></div>
             <div className="field">
               <label>Foto do participante</label>
               <div className="photo-preview-wrap">
-                <div className="photo-preview">
-                  {foto ? <img src={foto} alt="Prévia da foto" /> : 'Sem foto'}
-                </div>
+                <div className="photo-preview">{foto ? <img src={foto} alt="Prévia" /> : 'Sem foto'}</div>
                 <div className="photo-actions">
-                  <label className="btn">
-                    Selecionar foto
-                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={onPickFile} />
-                  </label>
+                  <label className="btn">Selecionar foto<input type="file" accept="image/*" style={{ display: 'none' }} onChange={onPickFile} /></label>
                   <button type="button" className="btn ghost danger" onClick={() => setFoto('')}>Remover foto</button>
                 </div>
               </div>
-              <div className="photo-help">Ao clicar no nome da pessoa na lista, a foto será aberta.</div>
             </div>
             <div className="field"><label>Observações</label><textarea value={form.observacoes} onChange={set('observacoes')} /></div>
           </div>
           <div className="modal-foot">
             {!isNew && (
-              <button type="button" className="btn danger ghost" style={{ marginRight: 'auto' }} onClick={excluir} disabled={salvando}>
-                Excluir
-              </button>
+              <button type="button" className="btn danger ghost" style={{ marginRight: 'auto' }} onClick={excluir} disabled={salvando}>Excluir</button>
             )}
             <button type="button" className="btn" onClick={onClose}>Cancelar</button>
-            <button type="submit" className="btn primary" disabled={salvando}>
-              {salvando ? 'Salvando…' : 'Salvar'}
-            </button>
+            <button type="submit" className="btn primary" disabled={salvando}>{salvando ? 'Salvando…' : 'Salvar'}</button>
           </div>
         </form>
       </div>

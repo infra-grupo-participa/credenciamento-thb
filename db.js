@@ -1,20 +1,17 @@
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 
 let client = null;
 
 /**
- * Lê as credenciais do Supabase aceitando vários padrões de nomes de variáveis,
- * para funcionar com o que a integração da Hostinger injetar ou com config manual.
- * Prefere a service_role key (ignora RLS); cai para a anon key se for o que houver.
+ * Credenciais do Supabase (aceita vários nomes; URL pública embutida como padrão).
+ * Prefere a service_role key (ignora RLS).
  */
 function supabaseConfig() {
   const e = process.env;
   const url = e.SUPABASE_URL || e.SUPABASE_PROJECT_URL || e.NEXT_PUBLIC_SUPABASE_URL || e.VITE_SUPABASE_URL
-    || 'https://soptmfyrsrvceqvdueiw.supabase.co'; // URL pública do projeto (não é segredo)
+    || 'https://soptmfyrsrvceqvdueiw.supabase.co';
   const key = e.SUPABASE_SERVICE_ROLE_KEY || e.SUPABASE_SERVICE_KEY || e.SUPABASE_KEY
     || e.SUPABASE_ANON_KEY || e.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   return { url, key };
@@ -30,17 +27,23 @@ function sb() {
   return client;
 }
 
-/** Lança erro do Supabase (se houver) e devolve os dados. */
 function unwrap({ data, error }) {
   if (error) throw new Error(error.message || 'supabase_error');
   return data;
 }
 
 const TABELA = 'participantes';
-// Colunas devolvidas na listagem (sem a foto, que é pesada).
-const LIGHT = 'id,nome,nomeCracha,email,telefone,turma,profissao,tamanhoCamisa,dataChegada,dataRetorno,instrucao,recebeuCracha,credenciado,dataCredenciamento,observacoes,temFoto,updated_at';
+// Colunas leves da listagem (sem foto nem dados_extra).
+const LIGHT = 'id,evento_id,nome,nomeCracha,email,telefone,turma,profissao,instrucao,tipo,grupoDiamante,convidadoPor,recebeuCracha,credenciado,dataCredenciamento,temFoto,updated_at';
+// Colunas do detalhe (tudo exceto a foto, que é carregada à parte).
+const DETALHE = 'id,evento_id,nome,nomeCracha,email,telefone,documento,cidade,estado,turma,profissao,instrucao,nivel,faturamento,tamanhoCamisa,tipo,grupoDiamante,convidadoPor,convidadoPorId,observacoes,dataChegada,dataRetorno,dataCredenciamento,recebeuCracha,credenciado,dados_extra,temFoto,criado_em,updated_at';
 
-/* ---------- Normalização de um registro ---------- */
+function shape(r) {
+  if (!r) return r;
+  return { ...r, recebeuCracha: !!r.recebeuCracha, credenciado: !!r.credenciado, temFoto: !!r.temFoto };
+}
+
+/* ---------- Normalização (criação/edição manual) ---------- */
 function normalize(p, { generateId = false } = {}) {
   const s = (v, max) => (v == null ? '' : String(v)).slice(0, max);
   const id = s(p.id, 64).trim() || (generateId ? newId() : '');
@@ -48,19 +51,23 @@ function normalize(p, { generateId = false } = {}) {
   if (!id || !nome) return null;
   return {
     id,
+    evento_id: s(p.evento_id, 64) || null,
     nome,
     nomeCracha: s(p.nomeCracha, 255),
     email: s(p.email, 255),
     telefone: s(p.telefone, 64),
+    documento: p.documento == null ? null : String(p.documento),
+    cidade: p.cidade == null ? null : String(p.cidade),
+    estado: s(p.estado, 64) || null,
     turma: s(p.turma, 32),
     profissao: s(p.profissao, 255),
-    tamanhoCamisa: s(p.tamanhoCamisa, 16),
-    dataChegada: s(p.dataChegada, 32),
-    dataRetorno: s(p.dataRetorno, 32),
     instrucao: s(p.instrucao, 128),
-    recebeuCracha: !!p.recebeuCracha,
-    credenciado: !!p.credenciado,
-    dataCredenciamento: s(p.dataCredenciamento, 64),
+    nivel: p.nivel == null ? null : String(p.nivel),
+    faturamento: p.faturamento == null ? null : String(p.faturamento),
+    tamanhoCamisa: s(p.tamanhoCamisa, 16),
+    tipo: ['comum', 'socio', 'diamante', 'convidado'].includes(p.tipo) ? p.tipo : 'comum',
+    grupoDiamante: p.grupoDiamante ? String(p.grupoDiamante) : null,
+    convidadoPor: p.convidadoPor ? String(p.convidadoPor) : null,
     observacoes: p.observacoes == null ? '' : String(p.observacoes),
     foto: p.foto == null ? '' : String(p.foto),
   };
@@ -70,18 +77,28 @@ function newId() {
   return 'm-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
 }
 
-/* ---------- Operações de dados (repo) ---------- */
 const repo = {
-  async listar() {
-    const data = unwrap(await sb().from(TABELA).select(LIGHT).order('nome', { ascending: true }));
+  async listarEventos() {
+    return unwrap(await sb().from('vw_eventos').select('*').order('ordem', { ascending: true }));
+  },
+
+  async listar(eventoId) {
+    let q = sb().from(TABELA).select(LIGHT).order('nome', { ascending: true });
+    if (eventoId) q = q.eq('evento_id', eventoId);
+    const data = unwrap(await q);
     const updatedAt = data.reduce((m, r) => (r.updated_at > m ? r.updated_at : m), null);
-    return { list: data, updatedAt };
+    return { list: data.map(shape), updatedAt };
+  },
+
+  async detalhe(id) {
+    const data = unwrap(await sb().from(TABELA).select(DETALHE).eq('id', id));
+    return data.length ? shape(data[0]) : null;
   },
 
   async criar(p) {
     const row = normalize(p, { generateId: true });
     if (!row) return null;
-    return unwrap(await sb().from(TABELA).insert(row).select(LIGHT).single());
+    return shape(unwrap(await sb().from(TABELA).insert(row).select(LIGHT).single()));
   },
 
   async atualizar(id, p) {
@@ -89,12 +106,13 @@ const repo = {
     if (!row) return null;
     const campos = {
       nome: row.nome, nomeCracha: row.nomeCracha, email: row.email, telefone: row.telefone,
-      turma: row.turma, profissao: row.profissao, tamanhoCamisa: row.tamanhoCamisa,
-      dataChegada: row.dataChegada, dataRetorno: row.dataRetorno, instrucao: row.instrucao,
-      observacoes: row.observacoes, updated_at: new Date().toISOString(),
+      documento: row.documento, cidade: row.cidade, estado: row.estado, turma: row.turma,
+      profissao: row.profissao, instrucao: row.instrucao, nivel: row.nivel, faturamento: row.faturamento,
+      tamanhoCamisa: row.tamanhoCamisa, tipo: row.tipo, grupoDiamante: row.grupoDiamante,
+      convidadoPor: row.convidadoPor, observacoes: row.observacoes, updated_at: new Date().toISOString(),
     };
     const data = unwrap(await sb().from(TABELA).update(campos).eq('id', id).select(LIGHT));
-    return data[0] || null;
+    return data[0] ? shape(data[0]) : null;
   },
 
   async credenciar(id, credenciado) {
@@ -102,7 +120,7 @@ const repo = {
     const data = unwrap(await sb().from(TABELA)
       .update({ credenciado, recebeuCracha: credenciado, dataCredenciamento: quando, updated_at: new Date().toISOString() })
       .eq('id', id).select(LIGHT));
-    return data[0] || null;
+    return data[0] ? shape(data[0]) : null;
   },
 
   async excluir(id) {
@@ -121,55 +139,38 @@ const repo = {
     return data.length > 0;
   },
 
-  async exportar() {
-    return unwrap(await sb().from(TABELA)
-      .select('id,nome,nomeCracha,email,telefone,turma,profissao,tamanhoCamisa,dataChegada,dataRetorno,instrucao,recebeuCracha,credenciado,dataCredenciamento,observacoes,foto')
-      .order('nome', { ascending: true }));
+  async exportar(eventoId) {
+    let q = sb().from(TABELA).select(`${DETALHE},foto`).order('nome', { ascending: true });
+    if (eventoId) q = q.eq('evento_id', eventoId);
+    return unwrap(await q).map(shape);
   },
 
-  async substituirTudo(list) {
-    // Apaga tudo e insere a lista enviada (usado pelo Importar).
-    unwrap(await sb().from(TABELA).delete().neq('id', '__sem_id__'));
-    const rows = list.map((p) => normalize(p, { generateId: true })).filter(Boolean);
-    if (rows.length) unwrap(await sb().from(TABELA).insert(rows));
+  // Substitui apenas a lista de UM evento (usado pelo Importar).
+  async substituirEvento(eventoId, list) {
+    if (!eventoId) throw new Error('evento_obrigatorio');
+    unwrap(await sb().from(TABELA).delete().eq('evento_id', eventoId));
+    const rows = list.map((p) => normalize({ ...p, evento_id: eventoId }, { generateId: true })).filter(Boolean);
+    for (let i = 0; i < rows.length; i += 500) {
+      unwrap(await sb().from(TABELA).insert(rows.slice(i, i + 500)));
+    }
     return rows.length;
-  },
-
-  async contar() {
-    const { count, error } = await sb().from(TABELA).select('id', { count: 'exact', head: true });
-    if (error) throw new Error(error.message);
-    return count || 0;
   },
 };
 
-/** Registra uma ação na auditoria (não derruba a requisição se falhar). */
-async function audit(participante, nome, acao, operador, detalhe) {
+async function audit(participante, nome, acao, operador, detalhe, evento_id) {
   try {
-    await sb().from('auditoria').insert({ participante: participante || null, nome: nome || null, acao, operador: operador || null, detalhe: detalhe || null });
+    await sb().from('auditoria').insert({
+      participante: participante || null, nome: nome || null, acao,
+      operador: operador || null, detalhe: detalhe || null, evento_id: evento_id || null,
+    });
   } catch (e) {
     console.error('[audit]', e.message);
   }
 }
 
-/* ---------- Seed inicial a partir do data.json ---------- */
-async function seedFromFile() {
-  const file = process.env.SEED_FILE || path.join(__dirname, 'data.json');
-  const full = path.isAbsolute(file) ? file : path.join(__dirname, file);
-  if (!fs.existsSync(full)) return 0;
-  let parsed;
-  try { parsed = JSON.parse(fs.readFileSync(full, 'utf8')); } catch { return 0; }
-  const list = Array.isArray(parsed) ? parsed : parsed.list;
-  if (!Array.isArray(list) || !list.length) return 0;
-  const n = await repo.substituirTudo(list);
-  await audit(null, null, 'seed', 'sistema', `Importados ${n} registros de data.json`);
-  console.log(`[seed] ${n} participantes importados`);
-  return n;
-}
-
-/** Verifica conexão e faz o seed se a tabela estiver vazia. */
+/** Apenas verifica a conexão (não semeia mais nada — eventos já populados). */
 async function init() {
-  const total = await repo.contar();
-  if (total === 0) await seedFromFile();
+  unwrap(await sb().from('eventos').select('id', { count: 'exact', head: true }));
 }
 
-module.exports = { sb, repo, audit, init, seedFromFile, normalize, newId };
+module.exports = { sb, repo, audit, init, normalize, newId };

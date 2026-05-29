@@ -3,6 +3,9 @@ node_modules/
 *.log
 .DS_Store
 
+# Planilhas-fonte (PII de leads) — não versionar; o importador fica em dados-uteis/importar.js
+dados-uteis/*.xlsx
+
 # Obs: a pasta dist/ (build do front) é versionada de propósito.
 # A Hostinger roda o build numa etapa separada do runtime e não leva os
 # artefatos adiante, então commitamos o dist para o servidor sempre encontrá-lo.

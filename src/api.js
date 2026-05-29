@@ -54,7 +54,9 @@ export const api = {
   login: (operador, senha) => request('/login', { method: 'POST', body: { operador, senha } }),
   me: () => request('/me'),
 
-  listar: () => request('/participantes'),
+  eventos: () => request('/eventos'),
+  listar: (eventoId) => request(`/participantes?evento=${encodeURIComponent(eventoId)}`),
+  detalhe: (id) => request(`/participantes/${encodeURIComponent(id)}`),
   criar: (p) => request('/participantes', { method: 'POST', body: p }),
   atualizar: (id, p) => request(`/participantes/${encodeURIComponent(id)}`, { method: 'PUT', body: p }),
   credenciar: (id, credenciado) =>
@@ -64,7 +66,6 @@ export const api = {
   getFoto: (id) => request(`/participantes/${encodeURIComponent(id)}/foto`),
   setFoto: (id, foto) => request(`/participantes/${encodeURIComponent(id)}/foto`, { method: 'PUT', body: { foto } }),
 
-  exportar: () => request('/export'),
-  importar: (list) => request('/import', { method: 'POST', body: { list } }),
-  resetar: () => request('/reset', { method: 'POST' }),
+  exportar: (eventoId) => request(`/export?evento=${encodeURIComponent(eventoId || '')}`),
+  importar: (eventoId, list) => request('/import', { method: 'POST', body: { evento: eventoId, list } }),
 };

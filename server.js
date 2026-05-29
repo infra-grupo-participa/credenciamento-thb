@@ -69,13 +69,37 @@ api.post('/login', (req, res) => {
 // Verifica se o token ainda é válido (usado ao abrir o app).
 api.get('/me', auth, (req, res) => res.json({ operador: req.operador }));
 
-// Lista completa (sem fotos) — base do polling.
+// Eventos (com contadores) — inclui arquivados (histórico).
+api.get('/eventos', auth, async (req, res) => {
+  try {
+    res.json({ eventos: await db.repo.listarEventos() });
+  } catch (e) {
+    console.error(e.message);
+    res.status(500).json({ error: 'eventos_failed' });
+  }
+});
+
+// Lista (leve) de um evento — base do polling.
 api.get('/participantes', auth, async (req, res) => {
   try {
-    res.json(await db.repo.listar());
+    const evento = String(req.query.evento || '');
+    if (!evento) return res.status(400).json({ error: 'evento_obrigatorio' });
+    res.json(await db.repo.listar(evento));
   } catch (e) {
     console.error(e.message);
     res.status(500).json({ error: 'read_failed' });
+  }
+});
+
+// Detalhe completo de um participante (para o modal).
+api.get('/participantes/:id', auth, async (req, res) => {
+  try {
+    const p = await db.repo.detalhe(req.params.id);
+    if (!p) return res.status(404).json({ error: 'nao_encontrado' });
+    res.json(p);
+  } catch (e) {
+    console.error(e.message);
+    res.status(500).json({ error: 'detalhe_failed' });
   }
 });
 
@@ -84,7 +108,7 @@ api.post('/participantes', auth, async (req, res) => {
   try {
     const criado = await db.repo.criar(req.body);
     if (!criado) return res.status(400).json({ error: 'nome_obrigatorio' });
-    await db.audit(criado.id, criado.nome, 'criar', req.operador, null);
+    await db.audit(criado.id, criado.nome, 'criar', req.operador, null, criado.evento_id);
     res.status(201).json(criado);
   } catch (e) {
     console.error(e.message);
@@ -111,7 +135,7 @@ api.patch('/participantes/:id/credenciar', auth, async (req, res) => {
     const credenciado = !!req.body.credenciado;
     const atualizado = await db.repo.credenciar(req.params.id, credenciado);
     if (!atualizado) return res.status(404).json({ error: 'nao_encontrado' });
-    await db.audit(req.params.id, atualizado.nome, credenciado ? 'credenciar' : 'descredenciar', req.operador, null);
+    await db.audit(req.params.id, atualizado.nome, credenciado ? 'credenciar' : 'descredenciar', req.operador, null, atualizado.evento_id);
     res.json(atualizado);
   } catch (e) {
     console.error(e.message);
@@ -155,39 +179,28 @@ api.put('/participantes/:id/foto', auth, async (req, res) => {
   }
 });
 
-// Exportar backup completo (com fotos).
+// Exportar backup de um evento (com fotos).
 api.get('/export', auth, async (req, res) => {
   try {
-    const list = await db.repo.exportar();
+    const list = await db.repo.exportar(String(req.query.evento || ''));
     res.json({ list, exportedAt: new Date().toISOString() });
   } catch (e) {
     res.status(500).json({ error: 'export_failed' });
   }
 });
 
-// Importar lista (substitui tudo) — usado pelo botão "Importar".
+// Importar lista de UM evento (substitui só aquele evento).
 api.post('/import', auth, async (req, res) => {
   const list = Array.isArray(req.body.list) ? req.body.list : null;
-  if (!list) return res.status(400).json({ error: 'invalid_payload' });
+  const evento = String(req.body.evento || '');
+  if (!list || !evento) return res.status(400).json({ error: 'invalid_payload' });
   try {
-    const count = await db.repo.substituirTudo(list);
-    await db.audit(null, null, 'importar', req.operador, `${count} registros`);
+    const count = await db.repo.substituirEvento(evento, list);
+    await db.audit(null, null, 'importar', req.operador, `${count} registros`, evento);
     res.json({ ok: true, count });
   } catch (e) {
     console.error(e.message);
     res.status(500).json({ error: 'import_failed' });
-  }
-});
-
-// Restaurar lista oficial (re-seed do data.json).
-api.post('/reset', auth, async (req, res) => {
-  try {
-    const n = await db.seedFromFile();
-    await db.audit(null, null, 'resetar', req.operador, 'restaurada lista oficial');
-    res.json({ ok: true, count: n });
-  } catch (e) {
-    console.error(e.message);
-    res.status(500).json({ error: 'reset_failed' });
   }
 });
 

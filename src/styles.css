@@ -189,6 +189,51 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 .login-card .btn.primary{width:100%;justify-content:center;padding:13px}
 .login-error{color:var(--danger);font-size:13px;text-align:center;margin-top:12px;min-height:18px}
 
+/* Barra de eventos */
+.eventbar{max-width:1400px;margin:14px auto 0;padding:0 24px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.eventbar-tabs{display:flex;gap:8px;flex-wrap:wrap;flex:1}
+.evt-tab{display:flex;flex-direction:column;align-items:flex-start;gap:2px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 14px;cursor:pointer;transition:all .18s;min-width:120px}
+.evt-tab:hover{border-color:var(--primary-2)}
+.evt-tab.active{background:linear-gradient(135deg,var(--primary),var(--primary-deep));border-color:transparent;box-shadow:0 6px 16px rgba(239,124,0,.32)}
+.evt-tab .evt-nome{font-size:13px;font-weight:700;color:var(--text)}
+.evt-tab .evt-count{font-size:11.5px;color:var(--muted);font-weight:600}
+.evt-tab.active .evt-nome,.evt-tab.active .evt-count{color:#fff}
+
+.readonly-banner{max-width:1400px;margin:12px auto 0;padding:10px 24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:13px}
+.readonly-banner .btn{padding:7px 12px}
+
+/* Badges de tipo */
+.tbadge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(29,29,27,.06);color:#525866;border:1px solid transparent}
+.tbadge-comum{background:rgba(29,29,27,.06);color:#525866}
+.tbadge-socio{background:rgba(124,77,255,.14);color:#6b46c1}
+.tbadge-convidado{background:rgba(14,116,144,.14);color:#0e7490}
+.tbadge-diamante{background:linear-gradient(135deg,#fff0c2,#ffd970);color:#8a5200;border-color:#f0c64a}
+.tbadge-ok{background:rgba(31,157,87,.15);color:var(--success)}
+.grupo-dia{font-size:10.5px;color:var(--muted);margin-top:3px;max-width:160px}
+
+/* Avatar por tipo */
+.avatar-socio{background:linear-gradient(135deg,#8b5cf6,#6d28d9)}
+.avatar-convidado{background:linear-gradient(135deg,#22b8cf,#0e7490)}
+.avatar-diamante{background:linear-gradient(135deg,#fbbf24,#d97706);color:#3a2400}
+
+/* Detalhe */
+.detail-top{display:flex;gap:14px;align-items:center;margin-bottom:14px}
+.detail-foto{width:72px;height:72px;border-radius:14px;object-fit:cover;border:1px solid var(--line)}
+.detail-badges{display:flex;gap:6px;flex-wrap:wrap}
+.detail-sub{color:var(--muted);font-size:12.5px;margin-top:6px}
+.detail-invite{background:#fff7ef;border:1px solid #ffe0c2;border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:12px}
+.detail-section{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);font-weight:700;margin:16px 0 8px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.kv{display:flex;justify-content:space-between;gap:14px;padding:5px 0;font-size:13.5px;border-bottom:1px dashed rgba(29,29,27,.06)}
+.kv-k{color:var(--muted);flex-shrink:0}
+.kv-v{color:var(--text);text-align:right;word-break:break-word}
+
+/* Histórico */
+.hist-item{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:all .18s;text-align:left}
+.hist-item:hover{border-color:var(--primary-2);background:#fff7ef}
+.hist-nome{font-weight:700;font-size:14px}
+.hist-sub{color:var(--muted);font-size:12.5px;margin-top:2px}
+.hist-ver{color:var(--primary);font-weight:700;font-size:13px}
+
 /* Carregando */
 .center-screen{min-height:60vh;display:grid;place-items:center;color:var(--muted)}
 .spinner{width:34px;height:34px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--primary);animation:spin .8s linear infinite}
