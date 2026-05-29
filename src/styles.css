@@ -287,6 +287,7 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 .scan-nome{font-size:22px;font-weight:800;line-height:1.15}
 .scan-status{font-size:15px;font-weight:800}
 .scan-status.ok{color:var(--success)} .scan-status.dup{color:var(--warning)} .scan-status.err{color:var(--danger)}
+.scan-sub{font-size:13px;color:var(--muted);max-width:260px;font-weight:600}
 @media (max-width:640px){.scan-grid{grid-template-columns:1fr}.scan-result{min-height:200px}}
 
 /* QR no detalhe */

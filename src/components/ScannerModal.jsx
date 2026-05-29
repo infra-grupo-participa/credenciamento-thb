@@ -15,7 +15,7 @@ const STATUS = {
 };
 
 // Scanner em modo quiosque: leitura contínua de QR com confirmação visual grande.
-export default function ScannerModal({ onDetected, onClose }) {
+export default function ScannerModal({ onDetected, onClose, eventoNome }) {
   const videoRef = useRef(null);
   const rafRef = useRef(0);
   const last = useRef(null);
@@ -59,7 +59,7 @@ export default function ScannerModal({ onDetected, onClose }) {
     <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal modal-lg scanner-modal" role="dialog" aria-modal="true">
         <div className="modal-head">
-          <h3>Credenciamento por QR</h3>
+          <h3>Credenciando: {eventoNome || '—'}</h3>
           <button className="icon-btn" onClick={onClose} title="Fechar"><IconClose /></button>
         </div>
         <div className="modal-body">
@@ -85,6 +85,7 @@ export default function ScannerModal({ onDetected, onClose }) {
                       </div>
                     )}
                     <div className={`scan-status ${st.cls}`}>{st.txt}</div>
+                    {res.sub && <div className="scan-sub">{res.sub}</div>}
                   </>
                 )}
               </div>

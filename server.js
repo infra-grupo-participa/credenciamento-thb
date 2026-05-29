@@ -159,10 +159,17 @@ api.get('/participantes/:id', auth, async (req, res) => {
 
 // Resolve uma pessoa pelo token DENTRO do evento/dia ativo (para o scanner).
 api.get('/resolver', auth, async (req, res) => {
+  const evento = String(req.query.evento || '');
+  const token = String(req.query.token || '');
   try {
-    const p = await db.repo.porToken(String(req.query.evento || ''), String(req.query.token || ''));
-    if (!p) return res.status(404).json({ error: 'nao_encontrado' });
-    res.json(p);
+    const p = await db.repo.porToken(evento, token);
+    if (p) return res.json(p);
+    // Não está neste evento: identifica em quais eventos a pessoa está.
+    const achados = await db.repo.localizar(token);
+    if (achados.length) {
+      return res.status(409).json({ error: 'evento_errado', nome: achados[0].nome, eventos: [...new Set(achados.map((a) => a.evento_id))] });
+    }
+    res.status(404).json({ error: 'nao_encontrado' });
   } catch (e) {
     res.status(500).json({ error: 'resolver_failed' });
   }

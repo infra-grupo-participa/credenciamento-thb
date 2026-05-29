@@ -130,11 +130,17 @@ const repo = {
     return data.length ? shape(data[0]) : null;
   },
 
-  // Resolve a pessoa pelo token DENTRO de um evento/dia (validação por dia).
-  async porToken(eventoId, token) {
-    if (!eventoId || !token) return null;
-    const data = unwrap(await sb().from(TABELA).select(DETALHE).eq('evento_id', eventoId).eq('pessoa_token', token).limit(1));
+  // Resolve a pessoa pelo código (token OU id) DENTRO de um evento/dia.
+  async porToken(eventoId, code) {
+    if (!eventoId || !code) return null;
+    const data = unwrap(await sb().from(TABELA).select(DETALHE).eq('evento_id', eventoId)
+      .or(`pessoa_token.eq.${code},id.eq.${code}`).limit(1));
     return data.length ? shape(data[0]) : null;
+  },
+  // Localiza a pessoa em QUALQUER evento (para identificar quando o dia está errado).
+  async localizar(code) {
+    if (!code) return [];
+    return unwrap(await sb().from(TABELA).select('id,nome,evento_id').or(`pessoa_token.eq.${code},id.eq.${code}`));
   },
   // Nome para a página pública do QR.
   async nomePorToken(token) {

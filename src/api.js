@@ -66,7 +66,16 @@ export const api = {
   trocarSenha: (senha) => request('/senha', { method: 'POST', body: { senha } }),
   listar: (eventoId) => request(`/participantes?evento=${encodeURIComponent(eventoId)}`),
   detalhe: (id) => request(`/participantes/${encodeURIComponent(id)}`),
-  resolver: (eventoId, token) => request(`/resolver?evento=${encodeURIComponent(eventoId)}&token=${encodeURIComponent(token)}`),
+  resolver: async (eventoId, token) => {
+    const headers = {};
+    if (auth.token) headers.Authorization = `Bearer ${auth.token}`;
+    let res;
+    try { res = await fetch(`/api/resolver?evento=${encodeURIComponent(eventoId)}&token=${encodeURIComponent(token)}`, { headers }); }
+    catch { return { status: 0 }; }
+    if (res.status === 401) { auth.clear(); window.dispatchEvent(new Event('chf:unauthorized')); return { status: 401 }; }
+    let body = {}; const t = await res.text(); if (t) { try { body = JSON.parse(t); } catch { /* ignora */ } }
+    return { status: res.status, ...body };
+  },
   historico: (id) => request(`/participantes/${encodeURIComponent(id)}/historico`),
   auditoria: (eventoId) => request(`/auditoria?evento=${encodeURIComponent(eventoId || '')}`),
   getConfig: (k) => request(`/config/${encodeURIComponent(k)}`),

@@ -217,11 +217,24 @@ function Credenciamento({ operador, onLogout }) {
   }
 
   // Leitura de QR -> credencia pelo id embutido (em qualquer evento).
-  // Recebe o TOKEN do QR e resolve dentro do evento/dia ativo (validação por dia).
-  async function aoEscanear(token) {
+  // Recebe o conteúdo do QR (token, id, ou link /qr/<token>) e resolve no dia ativo.
+  async function aoEscanear(raw) {
+    let code = String(raw || '').trim();
+    const m = code.match(/\/qr\/([^/?#]+)/);
+    if (m) code = decodeURIComponent(m[1]); // QR que codifica o link inteiro
+    const r = await api.resolver(eventoId, code);
+    if (r.status !== 200) {
+      beepErr();
+      if (r.status === 409) {
+        const onde = (r.eventos || []).map((id) => (eventos.find((e) => e.id === id) || {}).nome || id).join(', ');
+        return { status: 'erro', nome: r.nome || 'Pessoa de outro evento', sub: `Pertence a: ${onde}. Selecione o dia correto.` };
+      }
+      if (r.status === 0) return { status: 'erro', nome: 'Sem conexão' };
+      return { status: 'erro', nome: 'QR não cadastrado neste sistema' };
+    }
+    const det = r;
     try {
-      const det = await api.resolver(eventoId, token);
-      const foto = det.temFoto ? await api.getFoto(det.id).then((r) => r.foto || '').catch(() => '') : '';
+      const foto = det.temFoto ? await api.getFoto(det.id).then((x) => x.foto || '').catch(() => '') : '';
       const ex = det.dados_extra && typeof det.dados_extra === 'object' ? det.dados_extra : {};
       const grupo = det.grupo || ex['Entrou no grupo?'] || ex['Está no grupo?'] || ex['Está no grupo da Imersão?'] || '';
       const info = { nome: det.nome, tipo: det.tipo, turma: det.turma, camisa: det.tamanhoCamisa, grupo, foto };
@@ -232,10 +245,7 @@ function Credenciamento({ operador, onLogout }) {
       qc.invalidateQueries({ queryKey: ['participantes', eventoId] });
       qc.invalidateQueries({ queryKey: ['eventos'] });
       return { status: 'ok', ...info };
-    } catch {
-      beepErr();
-      return { status: 'erro', nome: 'Não está na lista deste dia/evento' };
-    }
+    } catch { beepErr(); return { status: 'erro', nome: 'Erro ao credenciar' }; }
   }
 
   return (
@@ -390,7 +400,7 @@ function Credenciamento({ operador, onLogout }) {
         <HistoryModal eventos={eventos} onClose={() => setHistOpen(false)}
           onOpen={(id) => { setEventoId(id); setHistOpen(false); }} />
       )}
-      {scanOpen && <ScannerModal onDetected={aoEscanear} onClose={() => setScanOpen(false)} />}
+      {scanOpen && <ScannerModal onDetected={aoEscanear} eventoNome={eventoAtual?.nome || ''} onClose={() => setScanOpen(false)} />}
       {dashOpen && <DashboardModal eventoId={eventoId} eventoNome={eventoAtual?.nome || ''} lista={lista} onClose={() => setDashOpen(false)} />}
       {settingsOpen && <SettingsModal eventos={eventos} onClose={() => setSettingsOpen(false)} />}
     </>
