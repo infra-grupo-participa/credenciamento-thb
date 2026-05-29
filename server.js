@@ -255,10 +255,11 @@ api.get('/export', auth, async (req, res) => {
 api.post('/import', auth, async (req, res) => {
   const list = Array.isArray(req.body.list) ? req.body.list : null;
   const evento = String(req.body.evento || '');
+  const modo = req.body.modo === 'adicionar' ? 'adicionar' : 'substituir';
   if (!list || !evento) return res.status(400).json({ error: 'invalid_payload' });
   try {
-    const count = await db.repo.substituirEvento(evento, list);
-    await db.audit(null, null, 'importar', req.operador, `${count} registros`, evento);
+    const count = await db.repo.importarLista(evento, list, modo);
+    await db.audit(null, null, 'importar', req.operador, `${count} registros (${modo})`, evento);
     res.json({ ok: true, count });
   } catch (e) {
     console.error(e.message);

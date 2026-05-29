@@ -19,10 +19,12 @@ export default function SettingsModal({ eventos, onClose }) {
         <div className="modal-body">
           <div className="tabs">
             <button className={aba === 'eventos' ? 'active' : ''} onClick={() => setAba('eventos')}>Eventos</button>
+            <button className={aba === 'importar' ? 'active' : ''} onClick={() => setAba('importar')}>Importar lista</button>
             <button className={aba === 'operadores' ? 'active' : ''} onClick={() => setAba('operadores')}>Operadores</button>
             <button className={aba === 'senha' ? 'active' : ''} onClick={() => setAba('senha')}>Senha</button>
           </div>
           {aba === 'eventos' && <AbaEventos eventos={eventos} qc={qc} toast={toast} />}
+          {aba === 'importar' && <AbaImportar eventos={eventos} qc={qc} toast={toast} />}
           {aba === 'operadores' && <AbaOperadores toast={toast} />}
           {aba === 'senha' && <AbaSenha toast={toast} />}
         </div>
@@ -85,6 +87,124 @@ function LinhaEvento({ ev, onSalvar, salvando }) {
       <label className="ev-chk"><input type="checkbox" checked={!!f.ativo} onChange={(e) => setF({ ...f, ativo: e.target.checked })} /> Ativo</label>
       <label className="ev-chk"><input type="checkbox" checked={!!f.arquivado} onChange={(e) => setF({ ...f, arquivado: e.target.checked })} /> Histórico</label>
       <button className="btn mini" onClick={() => onSalvar(ev, f)} disabled={salvando}>Salvar</button>
+    </div>
+  );
+}
+
+const normH = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+function mapearColunas(headers) {
+  const acha = (...alvos) => {
+    for (const a of alvos) { const h = headers.find((x) => normH(x) === a); if (h) return h; }
+    for (const a of alvos) { const h = headers.find((x) => normH(x).includes(a)); if (h) return h; }
+    return undefined;
+  };
+  return {
+    nome: acha('nome completo', 'nome'),
+    email: acha('e-mail', 'email'),
+    telefone: acha('telefone (whatsapp)', 'telefone', 'whatsapp', 'celular'),
+    documento: acha('documento', 'cpf', 'cnpj'),
+    cidade: acha('cidade'), estado: acha('estado', 'uf'),
+    turma: acha('turma'), profissao: acha('profissao'),
+    instrucao: acha('instrucao'), tipo: acha('tipo'),
+    nivel: acha('nivel'), faturamento: acha('faturamento'),
+    tamanhoCamisa: acha('nome do cracha') ? undefined : acha('camisa', 'tamanho'),
+    nomeCracha: acha('nome do cracha', 'cracha'),
+    convidadoPor: acha('pessoa que indicou', 'quem convidou', 'quem indicou', 'convidado por', 'nome do socio', 'indicou'),
+    grupoDiamante: acha('qual e o seu grupo', 'grupo'),
+  };
+}
+function montarLinhas(json, map) {
+  const get = (r, k) => (map[k] ? r[map[k]] : '');
+  return json.map((r) => {
+    const instr = get(r, 'instrucao'); const conv = get(r, 'convidadoPor');
+    let tipo = String(get(r, 'tipo') || '').toLowerCase();
+    if (!['comum', 'socio', 'diamante', 'convidado'].includes(tipo)) {
+      const i = String(instr || '').toUpperCase();
+      tipo = /DIAMANTE/.test(i) ? 'diamante' : /S[ÓO]CIO/.test(i) ? 'socio' : (conv && String(conv).trim()) ? 'convidado' : 'comum';
+    }
+    return {
+      nome: get(r, 'nome'), email: get(r, 'email'), telefone: String(get(r, 'telefone') || ''),
+      documento: get(r, 'documento'), cidade: get(r, 'cidade'), estado: get(r, 'estado'),
+      turma: get(r, 'turma'), profissao: get(r, 'profissao'), instrucao: instr,
+      nivel: get(r, 'nivel'), faturamento: get(r, 'faturamento'), tamanhoCamisa: get(r, 'tamanhoCamisa'),
+      nomeCracha: get(r, 'nomeCracha'), convidadoPor: conv ? String(conv) : '', grupoDiamante: get(r, 'grupoDiamante'),
+      tipo, dados_extra: r,
+    };
+  }).filter((x) => String(x.nome || '').trim());
+}
+
+function AbaImportar({ eventos, qc, toast }) {
+  const [eventoSel, setEventoSel] = useState('');
+  const [wb, setWb] = useState(null);
+  const [sheets, setSheets] = useState([]);
+  const [sheetSel, setSheetSel] = useState('');
+  const [linhas, setLinhas] = useState([]);
+  const [modo, setModo] = useState('substituir');
+  const [importando, setImportando] = useState(false);
+
+  async function onFile(e) {
+    const file = e.target.files && e.target.files[0]; e.target.value = '';
+    if (!file) return;
+    try {
+      const XLSX = await import('xlsx');
+      const buf = await file.arrayBuffer();
+      const w = XLSX.read(buf, { type: 'array' });
+      setWb({ XLSX, w }); setSheets(w.SheetNames); const s = w.SheetNames[0]; setSheetSel(s);
+      parse({ XLSX, w }, s);
+    } catch { toast('Não consegui ler o arquivo', 'danger'); }
+  }
+  function parse(ctx, sheet) {
+    const json = ctx.XLSX.utils.sheet_to_json(ctx.w.Sheets[sheet], { defval: '' });
+    const headers = json.length ? Object.keys(json[0]) : [];
+    setLinhas(montarLinhas(json, mapearColunas(headers)));
+  }
+
+  async function importar() {
+    if (!eventoSel) { toast('Escolha o evento de destino', 'danger'); return; }
+    if (!linhas.length) { toast('Nada para importar', 'danger'); return; }
+    const ev = eventos.find((x) => x.id === eventoSel);
+    if (!confirm(`${modo === 'substituir' ? 'SUBSTITUIR' : 'Adicionar à'} lista de "${ev?.nome}" com ${linhas.length} pessoa(s)?`)) return;
+    setImportando(true);
+    try {
+      const { api } = await import('../api.js');
+      const r = await api.importar(eventoSel, linhas, modo);
+      await qc.invalidateQueries({ queryKey: ['participantes', eventoSel] });
+      await qc.invalidateQueries({ queryKey: ['eventos'] });
+      toast(`${r.count} importados`, 'success');
+      setLinhas([]); setWb(null); setSheets([]);
+    } catch { toast('Erro ao importar', 'danger'); }
+    finally { setImportando(false); }
+  }
+
+  return (
+    <div>
+      <p className="cfg-title">Carregue um CSV ou Excel (com cabeçalho). As colunas comuns são detectadas automaticamente (nome, e-mail, telefone, turma, instrução, tipo, quem convidou…).</p>
+      <div className="ev-form">
+        <select value={eventoSel} onChange={(e) => setEventoSel(e.target.value)}>
+          <option value="">Evento de destino…</option>
+          {eventos.filter((e) => !e.arquivado).map((e) => <option key={e.id} value={e.id}>{e.nome}</option>)}
+        </select>
+        <label className="btn">Escolher arquivo<input type="file" accept=".csv,.xlsx,.xls" style={{ display: 'none' }} onChange={onFile} /></label>
+        {sheets.length > 1 && (
+          <select value={sheetSel} onChange={(e) => { setSheetSel(e.target.value); parse(wb, e.target.value); }}>
+            {sheets.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        )}
+      </div>
+      {linhas.length > 0 && (
+        <>
+          <div className="detail-section">Prévia — {linhas.length} pessoa(s)</div>
+          <div className="kvs">
+            {linhas.slice(0, 5).map((p, i) => <div key={i} className="kv"><span className="kv-k">{p.nome}</span><span className="kv-v">{p.tipo}{p.turma ? ` · ${p.turma}` : ''}{p.convidadoPor ? ` · convidado por ${p.convidadoPor}` : ''}</span></div>)}
+            {linhas.length > 5 && <div className="cfg-title">…e mais {linhas.length - 5}</div>}
+          </div>
+          <div className="ev-form" style={{ marginTop: 10 }}>
+            <label className="ev-chk"><input type="radio" checked={modo === 'substituir'} onChange={() => setModo('substituir')} /> Substituir lista</label>
+            <label className="ev-chk"><input type="radio" checked={modo === 'adicionar'} onChange={() => setModo('adicionar')} /> Adicionar à lista</label>
+            <button className="btn primary" onClick={importar} disabled={importando}>{importando ? 'Importando…' : 'Importar'}</button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

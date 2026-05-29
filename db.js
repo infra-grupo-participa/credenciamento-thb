@@ -70,6 +70,7 @@ function normalize(p, { generateId = false } = {}) {
     convidadoPor: p.convidadoPor ? String(p.convidadoPor) : null,
     observacoes: p.observacoes == null ? '' : String(p.observacoes),
     foto: p.foto == null ? '' : String(p.foto),
+    dados_extra: p.dados_extra && typeof p.dados_extra === 'object' ? p.dados_extra : null,
   };
 }
 
@@ -204,10 +205,10 @@ const repo = {
     return true;
   },
 
-  // Substitui apenas a lista de UM evento (usado pelo Importar).
-  async substituirEvento(eventoId, list) {
+  // Importa lista de UM evento. modo: 'substituir' (apaga e insere) ou 'adicionar'.
+  async importarLista(eventoId, list, modo = 'substituir') {
     if (!eventoId) throw new Error('evento_obrigatorio');
-    unwrap(await sb().from(TABELA).delete().eq('evento_id', eventoId));
+    if (modo === 'substituir') unwrap(await sb().from(TABELA).delete().eq('evento_id', eventoId));
     const rows = list.map((p) => normalize({ ...p, evento_id: eventoId }, { generateId: true })).filter(Boolean);
     for (let i = 0; i < rows.length; i += 500) {
       unwrap(await sb().from(TABELA).insert(rows.slice(i, i + 500)));

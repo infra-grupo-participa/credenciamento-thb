@@ -80,5 +80,5 @@ export const api = {
   setFoto: (id, foto) => request(`/participantes/${encodeURIComponent(id)}/foto`, { method: 'PUT', body: { foto } }),
 
   exportar: (eventoId) => request(`/export?evento=${encodeURIComponent(eventoId || '')}`),
-  importar: (eventoId, list) => request('/import', { method: 'POST', body: { evento: eventoId, list } }),
+  importar: (eventoId, list, modo = 'substituir') => request('/import', { method: 'POST', body: { evento: eventoId, list, modo } }),
 };
