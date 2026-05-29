@@ -47,17 +47,6 @@ function auth(req, res, next) {
   next();
 }
 
-async function audit(participante, nome, acao, operador, detalhe) {
-  try {
-    await db.getPool().query(
-      'INSERT INTO auditoria (participante, nome, acao, operador, detalhe) VALUES (?,?,?,?,?)',
-      [participante || null, nome || null, acao, operador || null, detalhe || null]
-    );
-  } catch (e) {
-    console.error('[audit]', e.message);
-  }
-}
-
 /* ============================== ROTAS API ============================== */
 const api = express.Router();
 
@@ -76,89 +65,52 @@ api.post('/login', (req, res) => {
 // Verifica se o token ainda é válido (usado ao abrir o app).
 api.get('/me', auth, (req, res) => res.json({ operador: req.operador }));
 
-const SELECT_LIGHT = `
-  SELECT id, nome, nomeCracha, email, telefone, turma, profissao, tamanhoCamisa,
-         dataChegada, dataRetorno, instrucao, recebeuCracha, credenciado,
-         dataCredenciamento, observacoes,
-         (foto IS NOT NULL AND foto <> '') AS temFoto, updated_at
-  FROM participantes`;
-
-function shape(r) {
-  return {
-    ...r,
-    recebeuCracha: !!r.recebeuCracha,
-    credenciado: !!r.credenciado,
-    temFoto: !!r.temFoto,
-  };
-}
-
-// Lista completa (sem fotos) + carimbo da última alteração — base do polling.
+// Lista completa (sem fotos) — base do polling.
 api.get('/participantes', auth, async (req, res) => {
   try {
-    const [rows] = await db.getPool().query(`${SELECT_LIGHT} ORDER BY nome ASC`);
-    const [[{ updatedAt }]] = await db.getPool().query(
-      'SELECT MAX(updated_at) AS updatedAt FROM participantes'
-    );
-    res.json({ list: rows.map(shape), updatedAt: updatedAt || null });
+    res.json(await db.repo.listar());
   } catch (e) {
-    console.error(e);
+    console.error(e.message);
     res.status(500).json({ error: 'read_failed' });
   }
 });
 
 // Cria participante.
 api.post('/participantes', auth, async (req, res) => {
-  const row = db.normalize(req.body, { generateId: true });
-  if (!row) return res.status(400).json({ error: 'nome_obrigatorio' });
   try {
-    await db.getPool().query('INSERT INTO participantes SET ?', [row]);
-    await audit(row.id, row.nome, 'criar', req.operador, null);
-    const [[created]] = await db.getPool().query(`${SELECT_LIGHT} WHERE id = ?`, [row.id]);
-    res.status(201).json(shape(created));
+    const criado = await db.repo.criar(req.body);
+    if (!criado) return res.status(400).json({ error: 'nome_obrigatorio' });
+    await db.audit(criado.id, criado.nome, 'criar', req.operador, null);
+    res.status(201).json(criado);
   } catch (e) {
-    console.error(e);
+    console.error(e.message);
     res.status(500).json({ error: 'create_failed' });
   }
 });
 
 // Atualiza dados cadastrais (não mexe no status de credenciamento).
 api.put('/participantes/:id', auth, async (req, res) => {
-  const row = db.normalize({ ...req.body, id: req.params.id });
-  if (!row) return res.status(400).json({ error: 'nome_obrigatorio' });
   try {
-    const [r] = await db.getPool().query(
-      `UPDATE participantes SET nome=?, nomeCracha=?, email=?, telefone=?, turma=?,
-         profissao=?, tamanhoCamisa=?, dataChegada=?, dataRetorno=?, instrucao=?,
-         observacoes=? WHERE id=?`,
-      [row.nome, row.nomeCracha, row.email, row.telefone, row.turma, row.profissao,
-       row.tamanhoCamisa, row.dataChegada, row.dataRetorno, row.instrucao,
-       row.observacoes, row.id]
-    );
-    if (!r.affectedRows) return res.status(404).json({ error: 'nao_encontrado' });
-    await audit(row.id, row.nome, 'editar', req.operador, null);
-    const [[updated]] = await db.getPool().query(`${SELECT_LIGHT} WHERE id = ?`, [row.id]);
-    res.json(shape(updated));
+    const atualizado = await db.repo.atualizar(req.params.id, req.body);
+    if (!atualizado) return res.status(404).json({ error: 'nao_encontrado' });
+    await db.audit(atualizado.id, atualizado.nome, 'editar', req.operador, null);
+    res.json(atualizado);
   } catch (e) {
-    console.error(e);
+    console.error(e.message);
     res.status(500).json({ error: 'update_failed' });
   }
 });
 
 // Credenciar / descredenciar — operação atômica, sem sobrescrever o resto.
 api.patch('/participantes/:id/credenciar', auth, async (req, res) => {
-  const credenciado = !!req.body.credenciado ? 1 : 0;
-  const quando = credenciado ? new Date().toISOString() : '';
   try {
-    const [r] = await db.getPool().query(
-      'UPDATE participantes SET credenciado=?, recebeuCracha=?, dataCredenciamento=? WHERE id=?',
-      [credenciado, credenciado, quando, req.params.id]
-    );
-    if (!r.affectedRows) return res.status(404).json({ error: 'nao_encontrado' });
-    const [[updated]] = await db.getPool().query(`${SELECT_LIGHT} WHERE id = ?`, [req.params.id]);
-    await audit(req.params.id, updated.nome, credenciado ? 'credenciar' : 'descredenciar', req.operador, null);
-    res.json(shape(updated));
+    const credenciado = !!req.body.credenciado;
+    const atualizado = await db.repo.credenciar(req.params.id, credenciado);
+    if (!atualizado) return res.status(404).json({ error: 'nao_encontrado' });
+    await db.audit(req.params.id, atualizado.nome, credenciado ? 'credenciar' : 'descredenciar', req.operador, null);
+    res.json(atualizado);
   } catch (e) {
-    console.error(e);
+    console.error(e.message);
     res.status(500).json({ error: 'patch_failed' });
   }
 });
@@ -166,13 +118,12 @@ api.patch('/participantes/:id/credenciar', auth, async (req, res) => {
 // Exclui participante.
 api.delete('/participantes/:id', auth, async (req, res) => {
   try {
-    const [[p]] = await db.getPool().query('SELECT nome FROM participantes WHERE id=?', [req.params.id]);
-    const [r] = await db.getPool().query('DELETE FROM participantes WHERE id=?', [req.params.id]);
-    if (!r.affectedRows) return res.status(404).json({ error: 'nao_encontrado' });
-    await audit(req.params.id, p ? p.nome : null, 'excluir', req.operador, null);
+    const ok = await db.repo.excluir(req.params.id);
+    if (!ok) return res.status(404).json({ error: 'nao_encontrado' });
+    await db.audit(req.params.id, null, 'excluir', req.operador, null);
     res.json({ ok: true });
   } catch (e) {
-    console.error(e);
+    console.error(e.message);
     res.status(500).json({ error: 'delete_failed' });
   }
 });
@@ -180,20 +131,20 @@ api.delete('/participantes/:id', auth, async (req, res) => {
 // Foto — carregada/salva sob demanda (fica fora da listagem por ser pesada).
 api.get('/participantes/:id/foto', auth, async (req, res) => {
   try {
-    const [[row]] = await db.getPool().query('SELECT foto FROM participantes WHERE id=?', [req.params.id]);
-    if (!row) return res.status(404).json({ error: 'nao_encontrado' });
-    res.json({ foto: row.foto || '' });
+    const foto = await db.repo.getFoto(req.params.id);
+    if (foto === null) return res.status(404).json({ error: 'nao_encontrado' });
+    res.json({ foto });
   } catch (e) {
     res.status(500).json({ error: 'foto_read_failed' });
   }
 });
 
 api.put('/participantes/:id/foto', auth, async (req, res) => {
-  const foto = req.body.foto == null ? '' : String(req.body.foto);
   try {
-    const [r] = await db.getPool().query('UPDATE participantes SET foto=? WHERE id=?', [foto, req.params.id]);
-    if (!r.affectedRows) return res.status(404).json({ error: 'nao_encontrado' });
-    await audit(req.params.id, null, foto ? 'foto_definir' : 'foto_remover', req.operador, null);
+    const foto = req.body.foto == null ? '' : String(req.body.foto);
+    const ok = await db.repo.setFoto(req.params.id, foto);
+    if (!ok) return res.status(404).json({ error: 'nao_encontrado' });
+    await db.audit(req.params.id, null, foto ? 'foto_definir' : 'foto_remover', req.operador, null);
     res.json({ ok: true, temFoto: !!foto });
   } catch (e) {
     res.status(500).json({ error: 'foto_save_failed' });
@@ -203,13 +154,7 @@ api.put('/participantes/:id/foto', auth, async (req, res) => {
 // Exportar backup completo (com fotos).
 api.get('/export', auth, async (req, res) => {
   try {
-    const [rows] = await db.getPool().query(
-      `SELECT id, nome, nomeCracha, email, telefone, turma, profissao, tamanhoCamisa,
-              dataChegada, dataRetorno, instrucao, recebeuCracha, credenciado,
-              dataCredenciamento, observacoes, foto
-       FROM participantes ORDER BY nome ASC`
-    );
-    const list = rows.map((r) => ({ ...r, recebeuCracha: !!r.recebeuCracha, credenciado: !!r.credenciado }));
+    const list = await db.repo.exportar();
     res.json({ list, exportedAt: new Date().toISOString() });
   } catch (e) {
     res.status(500).json({ error: 'export_failed' });
@@ -220,33 +165,24 @@ api.get('/export', auth, async (req, res) => {
 api.post('/import', auth, async (req, res) => {
   const list = Array.isArray(req.body.list) ? req.body.list : null;
   if (!list) return res.status(400).json({ error: 'invalid_payload' });
-  const conn = await db.getPool().getConnection();
   try {
-    await conn.beginTransaction();
-    await conn.query('DELETE FROM participantes');
-    for (const p of list) {
-      const row = db.normalize(p, { generateId: true });
-      if (row) await conn.query('INSERT INTO participantes SET ?', [row]);
-    }
-    await conn.commit();
-    await audit(null, null, 'importar', req.operador, `${list.length} registros`);
-    res.json({ ok: true, count: list.length });
+    const count = await db.repo.substituirTudo(list);
+    await db.audit(null, null, 'importar', req.operador, `${count} registros`);
+    res.json({ ok: true, count });
   } catch (e) {
-    await conn.rollback();
+    console.error(e.message);
     res.status(500).json({ error: 'import_failed' });
-  } finally {
-    conn.release();
   }
 });
 
 // Restaurar lista oficial (re-seed do data.json).
 api.post('/reset', auth, async (req, res) => {
   try {
-    await db.getPool().query('DELETE FROM participantes');
-    await db.seedFromFile();
-    await audit(null, null, 'resetar', req.operador, 'restaurada lista oficial');
-    res.json({ ok: true });
+    const n = await db.seedFromFile();
+    await db.audit(null, null, 'resetar', req.operador, 'restaurada lista oficial');
+    res.json({ ok: true, count: n });
   } catch (e) {
+    console.error(e.message);
     res.status(500).json({ error: 'reset_failed' });
   }
 });
@@ -276,10 +212,10 @@ app.get(/^(?!\/api).*/, (req, res) => {
 (async () => {
   try {
     await db.init();
-    console.log('[db] tabelas prontas');
+    console.log('[db] Supabase conectado');
   } catch (e) {
     console.error('[db] falha ao iniciar o banco:', e.message);
-    // Sobe mesmo assim para servir uma mensagem de erro amigável no front.
+    // Sobe mesmo assim para servir o front e mostrar erro amigável.
   }
   app.listen(PORT, () => console.log(`Credenciamento rodando em http://localhost:${PORT}`));
 })();
