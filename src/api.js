@@ -57,6 +57,9 @@ export const api = {
   eventos: () => request('/eventos'),
   listar: (eventoId) => request(`/participantes?evento=${encodeURIComponent(eventoId)}`),
   detalhe: (id) => request(`/participantes/${encodeURIComponent(id)}`),
+  historico: (id) => request(`/participantes/${encodeURIComponent(id)}/historico`),
+  getConfig: (k) => request(`/config/${encodeURIComponent(k)}`),
+  setConfig: (k, v) => request(`/config/${encodeURIComponent(k)}`, { method: 'PUT', body: { v } }),
   criar: (p) => request('/participantes', { method: 'POST', body: p }),
   atualizar: (id, p) => request(`/participantes/${encodeURIComponent(id)}`, { method: 'PUT', body: p }),
   credenciar: (id, credenciado) =>

@@ -263,8 +263,17 @@ function Credenciamento({ operador, onLogout }) {
       )}
       {detalheId && (
         <DetailModal participantId={detalheId}
+          eventos={eventos}
+          readOnly={readOnly}
           onClose={() => setDetalheId(null)}
-          onEdit={readOnly ? null : (p) => { setDetalheId(null); setEditando(p); }} />
+          onEdit={readOnly ? null : (p) => { setDetalheId(null); setEditando(p); }}
+          onCredenciar={readOnly ? null : (id, novo, nome) => credenciarMut.mutateAsync({ id, credenciado: novo, nome })}
+          onOpenByName={(nome) => {
+            const alvo = norm(nome);
+            const achado = lista.find((x) => norm(x.nome) === alvo) || lista.find((x) => norm(x.nome).includes(alvo));
+            if (achado) setDetalheId(achado.id);
+            else toast('Essa pessoa não está nesta lista do evento.', 'danger');
+          }} />
       )}
       {histOpen && (
         <HistoryModal eventos={eventos} onClose={() => setHistOpen(false)}

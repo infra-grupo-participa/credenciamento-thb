@@ -145,6 +145,35 @@ const repo = {
     return unwrap(await q).map(shape);
   },
 
+  // Histórico cross-evento da pessoa (mesma por documento/e-mail).
+  async detalhePessoaChaves(id) {
+    const data = unwrap(await sb().from(TABELA).select('documento,email').eq('id', id));
+    return data[0] || null;
+  },
+  async historicoPessoa(id) {
+    const chaves = await this.detalhePessoaChaves(id);
+    if (!chaves) return [];
+    const doc = (chaves.documento || '').replace(/\D/g, '');
+    const email = (chaves.email || '').trim().toLowerCase();
+    const ors = [];
+    if (doc) ors.push(`documento.eq.${chaves.documento}`);
+    if (email) ors.push(`email.ilike.${email}`);
+    if (!ors.length) return [];
+    const data = unwrap(await sb().from(TABELA)
+      .select('id,evento_id,credenciado,dataCredenciamento')
+      .or(ors.join(',')));
+    return data.map((r) => ({ ...r, credenciado: !!r.credenciado }));
+  },
+
+  async getConfig(k) {
+    const data = unwrap(await sb().from('app_config').select('v').eq('k', k));
+    return data.length ? data[0].v : null;
+  },
+  async setConfig(k, v) {
+    unwrap(await sb().from('app_config').upsert({ k, v, updated_at: new Date().toISOString() }, { onConflict: 'k' }));
+    return true;
+  },
+
   // Substitui apenas a lista de UM evento (usado pelo Importar).
   async substituirEvento(eventoId, list) {
     if (!eventoId) throw new Error('evento_obrigatorio');

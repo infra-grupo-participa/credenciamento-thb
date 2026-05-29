@@ -103,6 +103,15 @@ api.get('/participantes/:id', auth, async (req, res) => {
   }
 });
 
+// Histórico da pessoa em todos os eventos (por documento/e-mail).
+api.get('/participantes/:id/historico', auth, async (req, res) => {
+  try {
+    res.json({ historico: await db.repo.historicoPessoa(req.params.id) });
+  } catch (e) {
+    res.status(500).json({ error: 'historico_failed' });
+  }
+});
+
 // Cria participante.
 api.post('/participantes', auth, async (req, res) => {
   try {
@@ -206,6 +215,23 @@ api.post('/import', auth, async (req, res) => {
 
 // Healthcheck simples.
 app.get('/health', (req, res) => res.json({ ok: true }));
+
+// Config global (ex.: campos fixados no modal de detalhes).
+api.get('/config/:k', auth, async (req, res) => {
+  try {
+    res.json({ v: await db.repo.getConfig(req.params.k) });
+  } catch (e) {
+    res.status(500).json({ error: 'config_read_failed' });
+  }
+});
+api.put('/config/:k', auth, async (req, res) => {
+  try {
+    await db.repo.setConfig(req.params.k, req.body.v ?? null);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'config_save_failed' });
+  }
+});
 
 app.use('/api', api);
 

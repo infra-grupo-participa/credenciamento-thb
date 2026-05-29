@@ -234,6 +234,38 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 .hist-sub{color:var(--muted);font-size:12.5px;margin-top:2px}
 .hist-ver{color:var(--primary);font-weight:700;font-size:13px}
 
+/* Modal grande (detalhe) */
+.modal-lg{max-width:780px}
+.modal-lg .detail-top{align-items:flex-start}
+.detail-foto-box{display:flex;flex-direction:column;gap:8px;align-items:center}
+.detail-foto{width:104px;height:104px;border-radius:16px;object-fit:cover;border:1px solid var(--line)}
+.detail-foto-empty{display:grid;place-items:center;background:#f7f8fa;color:var(--muted);font-size:12px}
+.detail-foto-actions{display:flex;gap:6px}
+.btn.mini{padding:6px 10px;font-size:12px}
+.detail-cred{margin-top:12px}
+.link-btn{all:unset;cursor:pointer;color:var(--primary);font-weight:700;text-decoration:underline}
+
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:18px 0 12px}
+.tabs button{background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted);font-weight:700;font-size:13px;padding:8px 12px;cursor:pointer;margin-bottom:-1px}
+.tabs button.active{color:var(--primary);border-bottom-color:var(--primary)}
+
+.destaques{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:14px}
+.destaque{background:#fff7ef;border:1px solid #ffe0c2;border-radius:12px;padding:10px 12px}
+.destaque .d-k{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:700}
+.destaque .d-v{display:block;font-size:15px;font-weight:700;margin-top:3px;word-break:break-word}
+
+.kvs{display:flex;flex-direction:column}
+
+.cfg-panel{background:#f7f8fa;border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:14px}
+.cfg-title{font-size:12px;color:var(--muted);font-weight:700;margin-bottom:8px}
+.cfg-chips{display:flex;flex-wrap:wrap;gap:6px}
+.cfg-chip{background:#fff;border:1px solid var(--line);border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600;cursor:pointer;color:var(--muted)}
+.cfg-chip.on{background:linear-gradient(135deg,var(--primary),var(--primary-deep));border-color:transparent;color:#fff}
+
+.cam-wrap{margin:6px 0 14px;display:flex;flex-direction:column;gap:10px;align-items:center}
+.cam-video{width:100%;max-width:360px;border-radius:14px;border:1px solid var(--line);background:#000;transform:scaleX(-1)}
+.cam-actions{display:flex;gap:10px}
+
 /* Carregando */
 .center-screen{min-height:60vh;display:grid;place-items:center;color:var(--muted)}
 .spinner{width:34px;height:34px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--primary);animation:spin .8s linear infinite}
