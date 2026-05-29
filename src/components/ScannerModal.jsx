@@ -78,6 +78,12 @@ export default function ScannerModal({ onDetected, onClose }) {
                       : <div className={`scan-foto scan-foto-ph avatar-${res.tipo ? tipoCls(res.tipo) : 'comum'}`}>{res.status === 'erro' ? '!' : initials(res.nome)}</div>}
                     <div className="scan-nome">{res.nome}</div>
                     {res.tipo && <span className={`tbadge tbadge-${tipoCls(res.tipo)}`}>{tipoLabel(res.tipo)}{res.turma ? ` · ${res.turma}` : ''}</span>}
+                    {(res.camisa || res.grupo) && (
+                      <div className="scan-extras">
+                        {res.camisa && <span className="scan-chip">Camisa <b>{res.camisa}</b></span>}
+                        {res.grupo && <span className="scan-chip">No grupo: <b>{res.grupo}</b></span>}
+                      </div>
+                    )}
                     <div className={`scan-status ${st.cls}`}>{st.txt}</div>
                   </>
                 )}

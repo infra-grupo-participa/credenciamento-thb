@@ -333,6 +333,36 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 .op-tag{display:inline-flex;align-items:center;gap:6px;background:#fff7ef;border:1px solid #ffe0c2;border-radius:999px;padding:5px 6px 5px 12px;font-size:13px;font-weight:600}
 .op-tag button{border:none;background:rgba(0,0,0,.08);color:var(--text);width:20px;height:20px;border-radius:50%;cursor:pointer;font-weight:700;line-height:1}
 
+/* Chips do scanner (camisa / grupo) */
+.scan-extras{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:2px}
+.scan-chip{background:#fff;border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:14px;color:var(--muted)}
+.scan-chip b{color:var(--text);font-size:16px}
+
+/* Tags no nome (aparecem só no mobile, quando as colunas somem) */
+.name-tags{display:none;gap:6px;margin-top:5px;flex-wrap:wrap}
+
+/* Responsivo — celular */
+@media (max-width:720px){
+  .hide-sm{display:none !important}
+  table.tbl{min-width:0}
+  .name-tags{display:flex}
+  .name,.name-sub{max-width:52vw}
+  .cell-nome{min-width:0}
+  table.tbl tbody td,table.tbl thead th{padding:10px 8px}
+  .header-actions{gap:6px;width:100%}
+  .header-actions .btn{padding:9px 11px;font-size:12px}
+  .app-header-inner{gap:10px}
+  .brand p{display:none}
+  .stat .value{font-size:23px}
+  .modal{border-radius:14px}
+  .modal-body{max-height:76vh}
+  .detail-foto{width:84px;height:84px}
+}
+@media (max-width:420px){
+  .filter{width:100%;justify-content:space-between}
+  .toolbar .btn{flex:1}
+}
+
 /* Carregando */
 .center-screen{min-height:60vh;display:grid;place-items:center;color:var(--muted)}
 .spinner{width:34px;height:34px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--primary);animation:spin .8s linear infinite}

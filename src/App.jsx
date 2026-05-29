@@ -215,16 +215,19 @@ function Credenciamento({ operador, onLogout }) {
     try {
       const det = await api.detalhe(id);
       const foto = det.temFoto ? await api.getFoto(id).then((r) => r.foto || '').catch(() => '') : '';
+      const ex = det.dados_extra && typeof det.dados_extra === 'object' ? det.dados_extra : {};
+      const grupo = ex['Entrou no grupo?'] || ex['Está no grupo?'] || ex['Está no grupo da Imersão?'] || ex['Sócio entrou no grupo?'] || '';
+      const info = { nome: det.nome, tipo: det.tipo, turma: det.turma, camisa: det.tamanhoCamisa, grupo, foto };
       if (det.credenciado) {
         beepOk();
-        return { status: 'duplicado', nome: det.nome, tipo: det.tipo, turma: det.turma, foto };
+        return { status: 'duplicado', ...info };
       }
       await api.credenciar(id, true);
       beepOk();
       qc.invalidateQueries({ queryKey: ['participantes', det.evento_id] });
       qc.invalidateQueries({ queryKey: ['participantes', eventoId] });
       qc.invalidateQueries({ queryKey: ['eventos'] });
-      return { status: 'ok', nome: det.nome, tipo: det.tipo, turma: det.turma, foto };
+      return { status: 'ok', ...info };
     } catch {
       beepErr();
       return { status: 'erro', nome: 'QR não reconhecido' };
@@ -327,10 +330,10 @@ function Credenciamento({ operador, onLogout }) {
                 <tr>
                   <th style={{ width: 170 }}>Status</th>
                   <th>Participante</th>
-                  <th>Tipo</th>
-                  <th>Turma</th>
-                  <th>Instrução</th>
-                  <th>Contato</th>
+                  <th className="hide-sm">Tipo</th>
+                  <th className="hide-sm">Turma</th>
+                  <th className="hide-sm">Instrução</th>
+                  <th className="hide-sm">Contato</th>
                   <th style={{ textAlign: 'right' }}>Ações</th>
                 </tr>
               </thead>
@@ -408,16 +411,20 @@ function Linha({ p, readOnly, onToggle, onEdit, onDetail }) {
               {p.nomeCracha || ''}{p.profissao ? ` · ${p.profissao}` : ''}
               {p.convidadoPor ? ` · convidado por ${p.convidadoPor}` : ''}
             </div>
+            <div className="name-tags">
+              <span className={`tbadge tbadge-${tipoCls(p.tipo)}`}>{tipoLabel(p.tipo)}</span>
+              {p.turma && <span className="badge turma">{p.turma}</span>}
+            </div>
           </div>
         </div>
       </td>
-      <td>
+      <td className="hide-sm">
         <span className={`tbadge tbadge-${tipoCls(p.tipo)}`}>{tipoLabel(p.tipo)}</span>
         {p.grupoDiamante && <div className="grupo-dia">{p.grupoDiamante}</div>}
       </td>
-      <td>{p.turma ? <span className="badge turma">{p.turma}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}</td>
-      <td>{p.instrucao ? <span className="badge inst">{p.instrucao}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}</td>
-      <td>
+      <td className="hide-sm">{p.turma ? <span className="badge turma">{p.turma}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}</td>
+      <td className="hide-sm">{p.instrucao ? <span className="badge inst">{p.instrucao}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}</td>
+      <td className="hide-sm">
         <div className="contact">
           {p.telefone ? <a href={`https://wa.me/${telClean}`} target="_blank" rel="noopener noreferrer">{p.telefone}</a> : <small>sem telefone</small>}
           {p.email && <small>{p.email}</small>}
