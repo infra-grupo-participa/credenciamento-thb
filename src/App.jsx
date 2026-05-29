@@ -7,6 +7,8 @@ import ParticipantModal from './components/ParticipantModal.jsx';
 import DetailModal from './components/DetailModal.jsx';
 import EventBar from './components/EventBar.jsx';
 import HistoryModal from './components/HistoryModal.jsx';
+import ScannerModal from './components/ScannerModal.jsx';
+import { beepOk, beepErr } from './beep.js';
 import { tipoLabel, tipoCls } from './tipos.js';
 import {
   IconImport, IconExport, IconPlus, IconSearch, IconCheck, IconSquare, IconEdit, IconLogout,
@@ -52,7 +54,22 @@ function Credenciamento({ operador, onLogout }) {
   const [editando, setEditando] = useState(undefined);
   const [detalheId, setDetalheId] = useState(null);
   const [histOpen, setHistOpen] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
   const fileRef = useRef(null);
+  const searchRef = useRef(null);
+
+  useEffect(() => {
+    function onKey(e) {
+      const tag = (e.target.tagName || '').toLowerCase();
+      const typing = tag === 'input' || tag === 'select' || tag === 'textarea';
+      if (!typing && (e.key === '/' || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k'))) {
+        e.preventDefault(); searchRef.current?.focus();
+      }
+      if (e.key === 'Escape') setScanOpen(false);
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const { data: eventosData } = useQuery({ queryKey: ['eventos'], queryFn: api.eventos, refetchInterval: 15000 });
   const eventos = eventosData?.eventos || [];
@@ -86,9 +103,11 @@ function Credenciamento({ operador, onLogout }) {
       });
       return { prev };
     },
-    onError: (_e, _v, ctx) => { if (ctx?.prev) qc.setQueryData(['participantes', eventoId], ctx.prev); toast('Erro ao salvar', 'danger'); },
-    onSuccess: (_d, { credenciado, nome }) =>
-      toast(credenciado ? `✓ ${nome} credenciado(a)!` : `${nome} marcado como pendente`, credenciado ? 'success' : ''),
+    onError: (_e, _v, ctx) => { if (ctx?.prev) qc.setQueryData(['participantes', eventoId], ctx.prev); beepErr(); toast('Erro ao salvar', 'danger'); },
+    onSuccess: (_d, { credenciado, nome }) => {
+      if (credenciado) beepOk();
+      toast(credenciado ? `✓ ${nome} credenciado(a)!` : `${nome} marcado como pendente`, credenciado ? 'success' : '');
+    },
     onSettled: () => { qc.invalidateQueries({ queryKey: ['participantes', eventoId] }); qc.invalidateQueries({ queryKey: ['eventos'] }); },
   });
 
@@ -154,6 +173,26 @@ function Credenciamento({ operador, onLogout }) {
     reader.readAsText(file);
   }
 
+  // Leitura de QR -> credencia pelo id embutido (em qualquer evento).
+  async function aoEscanear(id) {
+    try {
+      const det = await api.detalhe(id);
+      if (det.credenciado) {
+        beepOk(); toast(`${det.nome} já estava credenciado`, 'success');
+        return { ok: true, msg: `${det.nome} — já credenciado` };
+      }
+      await api.credenciar(id, true);
+      beepOk(); toast(`✓ ${det.nome} credenciado(a)!`, 'success');
+      qc.invalidateQueries({ queryKey: ['participantes', det.evento_id] });
+      qc.invalidateQueries({ queryKey: ['participantes', eventoId] });
+      qc.invalidateQueries({ queryKey: ['eventos'] });
+      return { ok: true, msg: `✓ ${det.nome} credenciado` };
+    } catch {
+      beepErr();
+      return { ok: false, msg: 'QR não reconhecido' };
+    }
+  }
+
   return (
     <>
       <header className="app-header">
@@ -166,6 +205,7 @@ function Credenciamento({ operador, onLogout }) {
             </div>
           </div>
           <div className="header-actions">
+            {!readOnly && <button className="btn" onClick={() => setScanOpen(true)} title="Ler QR do crachá"><IconSearch /> Escanear</button>}
             {!readOnly && <button className="btn ghost" onClick={abrirImport} title="Importar JSON"><IconImport /> Importar</button>}
             <button className="btn ghost" onClick={exportar} title="Exportar JSON"><IconExport /> Exportar</button>
             {!readOnly && <button className="btn primary" onClick={() => setEditando(null)}><IconPlus /> Novo participante</button>}
@@ -197,7 +237,14 @@ function Credenciamento({ operador, onLogout }) {
       <div className="toolbar">
         <div className="search">
           <IconSearch />
-          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome, e-mail, turma, telefone, quem convidou…" autoComplete="off" />
+          <input ref={searchRef} value={busca} onChange={(e) => setBusca(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !readOnly && filtrada.length === 1) {
+                const alvo = filtrada[0];
+                if (!alvo.credenciado) credenciarMut.mutate({ id: alvo.id, credenciado: true, nome: alvo.nome });
+              }
+            }}
+            placeholder="Buscar por nome, e-mail, turma, telefone, quem convidou…  (atalho: / )" autoComplete="off" />
         </div>
         <div className="filter">
           {[['todos', 'Todos'], ['pendentes', 'Pendentes'], ['credenciados', 'Credenciados']].map(([f, label]) => (
@@ -279,6 +326,7 @@ function Credenciamento({ operador, onLogout }) {
         <HistoryModal eventos={eventos} onClose={() => setHistOpen(false)}
           onOpen={(id) => { setEventoId(id); setHistOpen(false); }} />
       )}
+      {scanOpen && <ScannerModal onDetected={aoEscanear} onClose={() => setScanOpen(false)} />}
     </>
   );
 }

@@ -266,6 +266,20 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 .cam-video{width:100%;max-width:360px;border-radius:14px;border:1px solid var(--line);background:#000;transform:scaleX(-1)}
 .cam-actions{display:flex;gap:10px}
 
+/* Scanner de QR */
+.scan-wrap{position:relative;border-radius:14px;overflow:hidden;background:#000;display:flex;justify-content:center}
+.scan-video{width:100%;max-width:420px;display:block}
+.scan-frame{position:absolute;inset:18% 18%;border:3px solid rgba(255,255,255,.85);border-radius:16px;box-shadow:0 0 0 9999px rgba(0,0,0,.25)}
+.scan-msg{text-align:center;font-weight:700;font-size:14px;margin-top:12px;min-height:20px;color:var(--muted)}
+.scan-msg.ok{color:var(--success)}
+.scan-msg.err{color:var(--danger)}
+
+/* QR no detalhe */
+.qr-row{display:flex;gap:14px;align-items:center;background:#f7f8fa;border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:14px}
+.qr-img{width:96px;height:96px;border-radius:8px;background:#fff;border:1px solid var(--line)}
+.qr-info{display:flex;flex-direction:column;gap:8px}
+.qr-hint{font-size:12px;color:var(--muted)}
+
 /* Carregando */
 .center-screen{min-height:60vh;display:grid;place-items:center;color:var(--muted)}
 .spinner{width:34px;height:34px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--primary);animation:spin .8s linear infinite}

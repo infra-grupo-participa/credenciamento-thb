@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import QRCode from 'qrcode';
 import { api } from '../api.js';
 import { tipoLabel, tipoCls } from '../tipos.js';
 import { useToast } from './Toasts.jsx';
@@ -64,10 +65,12 @@ export default function DetailModal({ participantId, eventos = [], readOnly, onC
   const [configOpen, setConfigOpen] = useState(false);
   const [cam, setCam] = useState(false);
   const [salvandoCred, setSalvandoCred] = useState(false);
+  const [qr, setQr] = useState('');
   const fileRef = useRef(null);
 
   useEffect(() => {
     setP(null); setErro(false); setFoto(null); setHist([]); setAba('resumo');
+    QRCode.toDataURL(String(participantId), { margin: 1, width: 240 }).then(setQr).catch(() => setQr(''));
     api.detalhe(participantId).then((d) => {
       setP(d);
       if (d.temFoto) api.getFoto(participantId).then((r) => setFoto(r.foto || '')).catch(() => {});
@@ -101,6 +104,20 @@ export default function DetailModal({ participantId, eventos = [], readOnly, onC
     const reader = new FileReader();
     reader.onload = () => salvarFoto(reader.result);
     reader.readAsDataURL(f);
+  }
+
+  function imprimirCracha() {
+    const w = window.open('', '_blank', 'width=480,height=640'); if (!w) return;
+    const esc = (s) => String(s || '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Crachá</title>
+      <style>body{font-family:Inter,Arial,sans-serif;text-align:center;padding:28px;color:#1d1d1b}
+      h1{font-size:26px;margin:8px 0} .sub{color:#777;font-size:13px} .t{display:inline-block;background:#ef7c00;color:#fff;border-radius:999px;padding:4px 14px;font-weight:700;margin-top:6px}
+      img{width:240px;height:240px;margin-top:16px}</style></head><body>
+      <div class="sub">Time Holding Brasil</div><h1>${esc(p.nomeCracha || p.nome)}</h1>
+      ${p.turma ? `<div class="t">${esc(p.turma)}</div>` : ''}
+      <div><img src="${qr}" alt="QR"/></div>
+      <script>window.onload=function(){window.print()}<\/script></body></html>`);
+    w.document.close();
   }
 
   async function toggleFixo(k) {
@@ -169,6 +186,16 @@ export default function DetailModal({ participantId, eventos = [], readOnly, onC
                   {onOpenByName
                     ? <button className="link-btn" onClick={() => onOpenByName(p.convidadoPor)}>{p.convidadoPor}</button>
                     : p.convidadoPor}
+                </div>
+              )}
+
+              {qr && (
+                <div className="qr-row">
+                  <img className="qr-img" src={qr} alt="QR do crachá" />
+                  <div className="qr-info">
+                    <div className="qr-hint">QR do crachá (use no leitor para credenciar em segundos)</div>
+                    {!readOnly && <button className="btn" onClick={imprimirCracha}>Imprimir crachá</button>}
+                  </div>
                 </div>
               )}
 
