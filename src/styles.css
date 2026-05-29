@@ -285,6 +285,27 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 @media (min-width:721px){.offline-banner{margin:12px auto 0}}
 .offline-banner{margin-left:24px;margin-right:24px}
 
+/* Dashboard */
+.dash-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:8px}
+.dash-card{background:#f7f8fa;border:1px solid var(--line);border-radius:12px;padding:12px}
+.dash-card span{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:700}
+.dash-card b{font-size:24px;font-weight:800}
+.dash-card.ok b{color:var(--success)} .dash-card.warn b{color:var(--warning)} .dash-card.acc b{color:var(--primary)}
+.bar-row{display:flex;align-items:center;gap:10px;margin:6px 0;font-size:12.5px}
+.bar-label{width:120px;flex-shrink:0;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar-track{flex:1;height:12px;background:rgba(29,29,27,.06);border-radius:8px;overflow:hidden}
+.bar-fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--primary-deep));border-radius:8px}
+.bar-val{width:56px;text-align:right;color:var(--muted);font-weight:700;flex-shrink:0}
+.dash-exports{display:flex;gap:8px;flex-wrap:wrap}
+.audit-row{display:grid;grid-template-columns:96px 1fr 110px;gap:8px;align-items:baseline;padding:6px 0;border-bottom:1px dashed rgba(29,29,27,.06);font-size:12.5px}
+.audit-acao{font-weight:700;font-size:11px;text-transform:uppercase;color:var(--muted)}
+.acao-credenciar{color:var(--success)} .acao-descredenciar{color:var(--warning)}
+.acao-criar,.acao-editar{color:var(--primary)} .acao-excluir{color:var(--danger)}
+.audit-nome{font-weight:600}
+.audit-op{color:var(--muted)}
+.audit-quando{grid-column:1 / -1;color:var(--muted);font-size:11px;margin-top:-2px}
+@media (max-width:560px){.dash-cards{grid-template-columns:repeat(2,1fr)}}
+
 /* Carregando */
 .center-screen{min-height:60vh;display:grid;place-items:center;color:var(--muted)}
 .spinner{width:34px;height:34px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--primary);animation:spin .8s linear infinite}

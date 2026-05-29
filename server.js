@@ -216,6 +216,15 @@ api.post('/import', auth, async (req, res) => {
 // Healthcheck simples.
 app.get('/health', (req, res) => res.json({ ok: true }));
 
+// Auditoria (quem credenciou quem, quando) — opcionalmente por evento.
+api.get('/auditoria', auth, async (req, res) => {
+  try {
+    res.json({ itens: await db.repo.auditoria(String(req.query.evento || ''), Number(req.query.limit) || 300) });
+  } catch (e) {
+    res.status(500).json({ error: 'auditoria_failed' });
+  }
+});
+
 // Config global (ex.: campos fixados no modal de detalhes).
 api.get('/config/:k', auth, async (req, res) => {
   try {

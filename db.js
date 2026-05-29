@@ -165,6 +165,14 @@ const repo = {
     return data.map((r) => ({ ...r, credenciado: !!r.credenciado }));
   },
 
+  async auditoria(eventoId, limit = 300) {
+    let q = sb().from('auditoria')
+      .select('id,participante,nome,acao,operador,detalhe,criado_em')
+      .order('criado_em', { ascending: false }).limit(limit);
+    if (eventoId) q = q.eq('evento_id', eventoId);
+    return unwrap(await q);
+  },
+
   async getConfig(k) {
     const data = unwrap(await sb().from('app_config').select('v').eq('k', k));
     return data.length ? data[0].v : null;

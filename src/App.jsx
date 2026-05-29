@@ -8,6 +8,7 @@ import DetailModal from './components/DetailModal.jsx';
 import EventBar from './components/EventBar.jsx';
 import HistoryModal from './components/HistoryModal.jsx';
 import ScannerModal from './components/ScannerModal.jsx';
+import DashboardModal from './components/DashboardModal.jsx';
 import { beepOk, beepErr } from './beep.js';
 import { enfileirar, flushFila, tamanhoFila } from './offline.js';
 import { tipoLabel, tipoCls } from './tipos.js';
@@ -56,6 +57,7 @@ function Credenciamento({ operador, onLogout }) {
   const [detalheId, setDetalheId] = useState(null);
   const [histOpen, setHistOpen] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
+  const [dashOpen, setDashOpen] = useState(false);
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
   const [pendentes, setPendentes] = useState(tamanhoFila());
   const fileRef = useRef(null);
@@ -239,6 +241,7 @@ function Credenciamento({ operador, onLogout }) {
           <div className="header-actions">
             {!readOnly && <button className="btn" onClick={() => setScanOpen(true)} title="Ler QR do crachá"><IconSearch /> Escanear</button>}
             {!readOnly && <button className="btn ghost" onClick={abrirImport} title="Importar JSON"><IconImport /> Importar</button>}
+            <button className="btn ghost" onClick={() => setDashOpen(true)} title="Painel do evento">📊 Painel</button>
             <button className="btn ghost" onClick={exportar} title="Exportar JSON"><IconExport /> Exportar</button>
             {!readOnly && <button className="btn primary" onClick={() => setEditando(null)}><IconPlus /> Novo participante</button>}
             <span className="op-chip"><span className="who">{operador}</span>
@@ -366,6 +369,7 @@ function Credenciamento({ operador, onLogout }) {
           onOpen={(id) => { setEventoId(id); setHistOpen(false); }} />
       )}
       {scanOpen && <ScannerModal onDetected={aoEscanear} onClose={() => setScanOpen(false)} />}
+      {dashOpen && <DashboardModal eventoId={eventoId} eventoNome={eventoAtual?.nome || ''} lista={lista} onClose={() => setDashOpen(false)} />}
     </>
   );
 }

@@ -63,6 +63,7 @@ export const api = {
   listar: (eventoId) => request(`/participantes?evento=${encodeURIComponent(eventoId)}`),
   detalhe: (id) => request(`/participantes/${encodeURIComponent(id)}`),
   historico: (id) => request(`/participantes/${encodeURIComponent(id)}/historico`),
+  auditoria: (eventoId) => request(`/auditoria?evento=${encodeURIComponent(eventoId || '')}`),
   getConfig: (k) => request(`/config/${encodeURIComponent(k)}`),
   setConfig: (k, v) => request(`/config/${encodeURIComponent(k)}`, { method: 'PUT', body: { v } }),
   criar: (p) => request('/participantes', { method: 'POST', body: p }),
