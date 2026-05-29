@@ -12,8 +12,12 @@ app.disable('x-powered-by');
 app.use(express.json({ limit: '8mb' })); // 8mb cobre fotos em base64
 
 const PORT = process.env.PORT || 3000;
-const ACCESS_PASSWORD = process.env.ACCESS_PASSWORD || '';
-const SECRET = process.env.SESSION_SECRET || 'dev-secret-troque-isto';
+// Senha do evento: pode ser sobrescrita pela variável de ambiente ACCESS_PASSWORD.
+// Default embutido para o app funcionar sem configuração extra (como na versão original).
+const ACCESS_PASSWORD = process.env.ACCESS_PASSWORD || 'Clinica@102030@THB';
+// Segredo de assinatura dos tokens. RECOMENDADO definir SESSION_SECRET no painel
+// (qualquer string longa e aleatória); sem ela usa este placeholder.
+const SECRET = process.env.SESSION_SECRET || 'chf2026-troque-no-painel-com-SESSION_SECRET';
 
 /* ============================ AUTENTICAÇÃO ============================ */
 // Token assinado (HMAC) e stateless — sobrevive a redeploys, sem sessão em memória.
