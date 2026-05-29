@@ -26,6 +26,12 @@ const initials = (n) => {
   return ((p[0][0] || '') + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase();
 };
 const horaAgora = () => new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+function grupoBadge(g) {
+  if (!g) return <span style={{ color: 'var(--muted)' }}>—</span>;
+  const v = String(g).trim();
+  const sim = /^sim/i.test(v); const nao = /^n[ãa]o/i.test(v);
+  return <span className={`gbadge ${sim ? 'gsim' : nao ? 'gnao' : ''}`}>{sim ? 'SIM' : nao ? 'NÃO' : v}</span>;
+}
 
 export default function App() {
   const [operador, setOperador] = useState(auth.token ? auth.operador : null);
@@ -211,18 +217,16 @@ function Credenciamento({ operador, onLogout }) {
   }
 
   // Leitura de QR -> credencia pelo id embutido (em qualquer evento).
-  async function aoEscanear(id) {
+  // Recebe o TOKEN do QR e resolve dentro do evento/dia ativo (validação por dia).
+  async function aoEscanear(token) {
     try {
-      const det = await api.detalhe(id);
-      const foto = det.temFoto ? await api.getFoto(id).then((r) => r.foto || '').catch(() => '') : '';
+      const det = await api.resolver(eventoId, token);
+      const foto = det.temFoto ? await api.getFoto(det.id).then((r) => r.foto || '').catch(() => '') : '';
       const ex = det.dados_extra && typeof det.dados_extra === 'object' ? det.dados_extra : {};
-      const grupo = ex['Entrou no grupo?'] || ex['Está no grupo?'] || ex['Está no grupo da Imersão?'] || ex['Sócio entrou no grupo?'] || '';
+      const grupo = det.grupo || ex['Entrou no grupo?'] || ex['Está no grupo?'] || ex['Está no grupo da Imersão?'] || '';
       const info = { nome: det.nome, tipo: det.tipo, turma: det.turma, camisa: det.tamanhoCamisa, grupo, foto };
-      if (det.credenciado) {
-        beepOk();
-        return { status: 'duplicado', ...info };
-      }
-      await api.credenciar(id, true);
+      if (det.credenciado) { beepOk(); return { status: 'duplicado', ...info }; }
+      await api.credenciar(det.id, true);
       beepOk();
       qc.invalidateQueries({ queryKey: ['participantes', det.evento_id] });
       qc.invalidateQueries({ queryKey: ['participantes', eventoId] });
@@ -230,7 +234,7 @@ function Credenciamento({ operador, onLogout }) {
       return { status: 'ok', ...info };
     } catch {
       beepErr();
-      return { status: 'erro', nome: 'QR não reconhecido' };
+      return { status: 'erro', nome: 'Não está na lista deste dia/evento' };
     }
   }
 
@@ -332,6 +336,8 @@ function Credenciamento({ operador, onLogout }) {
                   <th>Participante</th>
                   <th className="hide-sm">Tipo</th>
                   <th className="hide-sm">Turma</th>
+                  <th className="hide-sm">Camisa</th>
+                  <th className="hide-sm">Grupo</th>
                   <th className="hide-sm">Instrução</th>
                   <th className="hide-sm">Contato</th>
                   <th style={{ textAlign: 'right' }}>Ações</th>
@@ -414,6 +420,8 @@ function Linha({ p, readOnly, onToggle, onEdit, onDetail }) {
             <div className="name-tags">
               <span className={`tbadge tbadge-${tipoCls(p.tipo)}`}>{tipoLabel(p.tipo)}</span>
               {p.turma && <span className="badge turma">{p.turma}</span>}
+              {p.tamanhoCamisa && <span className="badge size">{p.tamanhoCamisa}</span>}
+              {p.grupo && grupoBadge(p.grupo)}
             </div>
           </div>
         </div>
@@ -423,6 +431,8 @@ function Linha({ p, readOnly, onToggle, onEdit, onDetail }) {
         {p.grupoDiamante && <div className="grupo-dia">{p.grupoDiamante}</div>}
       </td>
       <td className="hide-sm">{p.turma ? <span className="badge turma">{p.turma}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}</td>
+      <td className="hide-sm">{p.tamanhoCamisa ? <span className="badge size">{p.tamanhoCamisa}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}</td>
+      <td className="hide-sm">{grupoBadge(p.grupo)}</td>
       <td className="hide-sm">{p.instrucao ? <span className="badge inst">{p.instrucao}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}</td>
       <td className="hide-sm">
         <div className="contact">

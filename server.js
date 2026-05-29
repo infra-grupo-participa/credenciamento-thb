@@ -157,6 +157,17 @@ api.get('/participantes/:id', auth, async (req, res) => {
   }
 });
 
+// Resolve uma pessoa pelo token DENTRO do evento/dia ativo (para o scanner).
+api.get('/resolver', auth, async (req, res) => {
+  try {
+    const p = await db.repo.porToken(String(req.query.evento || ''), String(req.query.token || ''));
+    if (!p) return res.status(404).json({ error: 'nao_encontrado' });
+    res.json(p);
+  } catch (e) {
+    res.status(500).json({ error: 'resolver_failed' });
+  }
+});
+
 // Histórico da pessoa em todos os eventos (por documento/e-mail).
 api.get('/participantes/:id/historico', auth, async (req, res) => {
   try {
@@ -302,13 +313,13 @@ app.use('/api', api);
 /* ==================== FRONT-END (build do Vite em /dist) ==================== */
 const DIST = path.join(__dirname, 'dist');
 
-// Página pública do QR do participante (para enviar ao aluno por WhatsApp).
-app.get('/qr/:id', async (req, res) => {
+// Página pública do QR do participante (token) — para enviar ao aluno.
+app.get('/qr/:token', async (req, res) => {
   const esc = (s) => String(s || '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
   try {
     let nome = '';
-    try { const p = await db.repo.detalhe(req.params.id); if (p) nome = p.nome; } catch { /* segue */ }
-    const dataUrl = await QRCode.toDataURL(String(req.params.id), { margin: 1, width: 320 });
+    try { nome = await db.repo.nomePorToken(req.params.token); } catch { /* segue */ }
+    const dataUrl = await QRCode.toDataURL(String(req.params.token), { margin: 1, width: 320 });
     res.set('Content-Type', 'text/html; charset=utf-8');
     res.send(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1">

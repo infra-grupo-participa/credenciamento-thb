@@ -110,7 +110,8 @@ function mapearColunas(headers) {
     tamanhoCamisa: acha('nome do cracha') ? undefined : acha('camisa', 'tamanho'),
     nomeCracha: acha('nome do cracha', 'cracha'),
     convidadoPor: acha('pessoa que indicou', 'quem convidou', 'quem indicou', 'convidado por', 'nome do socio', 'indicou'),
-    grupoDiamante: acha('qual e o seu grupo', 'grupo'),
+    grupoDiamante: acha('qual e o seu grupo'),
+    grupo: acha('entrou no grupo', 'esta no grupo da imersao', 'esta no grupo', 'no grupo'),
   };
 }
 function montarLinhas(json, map) {
@@ -128,7 +129,7 @@ function montarLinhas(json, map) {
       turma: get(r, 'turma'), profissao: get(r, 'profissao'), instrucao: instr,
       nivel: get(r, 'nivel'), faturamento: get(r, 'faturamento'), tamanhoCamisa: get(r, 'tamanhoCamisa'),
       nomeCracha: get(r, 'nomeCracha'), convidadoPor: conv ? String(conv) : '', grupoDiamante: get(r, 'grupoDiamante'),
-      tipo, dados_extra: r,
+      grupo: get(r, 'grupo'), tipo, dados_extra: r,
     };
   }).filter((x) => String(x.nome || '').trim());
 }

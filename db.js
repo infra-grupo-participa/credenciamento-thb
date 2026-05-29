@@ -1,8 +1,18 @@
 'use strict';
 
+const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
 
 let client = null;
+
+// Token estável da PESSOA (mesmo nos dois dias da Clínica). Deriva de documento
+// (só dígitos) > e-mail > nome. O QR carrega este token; a validação é por dia.
+function tokenDe({ documento, email, nome }) {
+  const doc = String(documento || '').replace(/\D/g, '');
+  const key = doc || String(email || '').trim().toLowerCase() || String(nome || '').trim().toLowerCase();
+  if (!key) return null;
+  return crypto.createHash('sha1').update(key).digest('hex').slice(0, 24);
+}
 
 /**
  * Credenciais do Supabase (aceita vários nomes; URL pública embutida como padrão).
@@ -34,9 +44,9 @@ function unwrap({ data, error }) {
 
 const TABELA = 'participantes';
 // Colunas leves da listagem (sem foto nem dados_extra).
-const LIGHT = 'id,evento_id,nome,nomeCracha,email,telefone,turma,profissao,instrucao,tipo,grupoDiamante,convidadoPor,recebeuCracha,credenciado,dataCredenciamento,temFoto,updated_at';
+const LIGHT = 'id,evento_id,nome,nomeCracha,email,telefone,turma,profissao,instrucao,tipo,grupoDiamante,convidadoPor,tamanhoCamisa,grupo,pessoa_token,recebeuCracha,credenciado,dataCredenciamento,temFoto,updated_at';
 // Colunas do detalhe (tudo exceto a foto, que é carregada à parte).
-const DETALHE = 'id,evento_id,nome,nomeCracha,email,telefone,documento,cidade,estado,turma,profissao,instrucao,nivel,faturamento,tamanhoCamisa,tipo,grupoDiamante,convidadoPor,convidadoPorId,observacoes,dataChegada,dataRetorno,dataCredenciamento,recebeuCracha,credenciado,dados_extra,temFoto,criado_em,updated_at';
+const DETALHE = 'id,evento_id,nome,nomeCracha,email,telefone,documento,cidade,estado,turma,profissao,instrucao,nivel,faturamento,tamanhoCamisa,grupo,tipo,grupoDiamante,convidadoPor,convidadoPorId,observacoes,dataChegada,dataRetorno,dataCredenciamento,recebeuCracha,credenciado,pessoa_token,dados_extra,temFoto,criado_em,updated_at';
 
 function shape(r) {
   if (!r) return r;
@@ -65,11 +75,13 @@ function normalize(p, { generateId = false } = {}) {
     nivel: p.nivel == null ? null : String(p.nivel),
     faturamento: p.faturamento == null ? null : String(p.faturamento),
     tamanhoCamisa: s(p.tamanhoCamisa, 16),
+    grupo: p.grupo == null || p.grupo === '' ? null : String(p.grupo),
     tipo: ['comum', 'socio', 'diamante', 'convidado'].includes(p.tipo) ? p.tipo : 'comum',
     grupoDiamante: p.grupoDiamante ? String(p.grupoDiamante) : null,
     convidadoPor: p.convidadoPor ? String(p.convidadoPor) : null,
     observacoes: p.observacoes == null ? '' : String(p.observacoes),
     foto: p.foto == null ? '' : String(p.foto),
+    pessoa_token: p.pessoa_token || tokenDe({ documento: p.documento, email: p.email, nome }),
     dados_extra: p.dados_extra && typeof p.dados_extra === 'object' ? p.dados_extra : null,
   };
 }
@@ -116,6 +128,19 @@ const repo = {
   async detalhe(id) {
     const data = unwrap(await sb().from(TABELA).select(DETALHE).eq('id', id));
     return data.length ? shape(data[0]) : null;
+  },
+
+  // Resolve a pessoa pelo token DENTRO de um evento/dia (validação por dia).
+  async porToken(eventoId, token) {
+    if (!eventoId || !token) return null;
+    const data = unwrap(await sb().from(TABELA).select(DETALHE).eq('evento_id', eventoId).eq('pessoa_token', token).limit(1));
+    return data.length ? shape(data[0]) : null;
+  },
+  // Nome para a página pública do QR.
+  async nomePorToken(token) {
+    if (!token) return '';
+    const data = unwrap(await sb().from(TABELA).select('nome').eq('pessoa_token', token).limit(1));
+    return data.length ? data[0].nome : '';
   },
 
   async criar(p) {

@@ -70,6 +70,27 @@ export default function DashboardModal({ eventoId, eventoNome, lista, onClose })
     } catch { toast('Erro ao gerar CSV', 'danger'); }
   }
 
+  async function exportarXLSX() {
+    try {
+      const d = await api.exportar(eventoId);
+      const XLSX = await import('xlsx');
+      const origin = window.location.origin;
+      const rows = (d.list || []).map((p) => ({
+        Nome: p.nome, 'Nome do crachá': p.nomeCracha, 'E-mail': p.email, Telefone: p.telefone,
+        Tipo: tipoLabel(p.tipo), Turma: p.turma, Camisa: p.tamanhoCamisa, 'No grupo': p.grupo,
+        Instrução: p.instrucao, Nível: p.nivel, Documento: p.documento, Cidade: p.cidade, Estado: p.estado,
+        'Convidado por': p.convidadoPor, Credenciado: p.credenciado ? 'SIM' : 'NÃO',
+        'Data credenciamento': p.dataCredenciamento,
+        'Link de credenciamento': `${origin}/qr/${p.pessoa_token || p.id}`,
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wbk = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wbk, ws, 'Credenciamento');
+      XLSX.writeFile(wbk, `${eventoId}-credenciamento.xlsx`);
+      toast('Excel gerado', 'success');
+    } catch { toast('Erro ao gerar Excel', 'danger'); }
+  }
+
   const maxTurma = Math.max(1, ...stats.porTurma.map((t) => t.total));
   const maxHora = Math.max(1, ...stats.porHora.map((h) => h.v));
 
@@ -105,11 +126,16 @@ export default function DashboardModal({ eventoId, eventoNome, lista, onClose })
               {stats.porHora.length === 0 && <div className="photo-empty">Ainda sem credenciamentos.</div>}
               {stats.porHora.map((x) => <Barra key={x.k} label={x.k} valor={x.v} max={maxHora} />)}
 
-              <div className="detail-section">Exportar (CSV / Excel)</div>
+              <div className="detail-section">Exportar CSV</div>
               <div className="dash-exports">
                 <button className="btn" onClick={() => exportarCSV('cred')}>Credenciados</button>
                 <button className="btn" onClick={() => exportarCSV('pend')}>No-show (pendentes)</button>
                 <button className="btn" onClick={() => exportarCSV('todos')}>Todos</button>
+              </div>
+
+              <div className="detail-section">Excel para envio de e-mail (com link individual de cada aluno)</div>
+              <div className="dash-exports">
+                <button className="btn primary" onClick={exportarXLSX}>Baixar Excel (.xlsx)</button>
               </div>
             </>
           )}

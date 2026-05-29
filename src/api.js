@@ -66,6 +66,7 @@ export const api = {
   trocarSenha: (senha) => request('/senha', { method: 'POST', body: { senha } }),
   listar: (eventoId) => request(`/participantes?evento=${encodeURIComponent(eventoId)}`),
   detalhe: (id) => request(`/participantes/${encodeURIComponent(id)}`),
+  resolver: (eventoId, token) => request(`/resolver?evento=${encodeURIComponent(eventoId)}&token=${encodeURIComponent(token)}`),
   historico: (id) => request(`/participantes/${encodeURIComponent(id)}/historico`),
   auditoria: (eventoId) => request(`/auditoria?evento=${encodeURIComponent(eventoId || '')}`),
   getConfig: (k) => request(`/config/${encodeURIComponent(k)}`),

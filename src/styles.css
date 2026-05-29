@@ -333,6 +333,11 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 .op-tag{display:inline-flex;align-items:center;gap:6px;background:#fff7ef;border:1px solid #ffe0c2;border-radius:999px;padding:5px 6px 5px 12px;font-size:13px;font-weight:600}
 .op-tag button{border:none;background:rgba(0,0,0,.08);color:var(--text);width:20px;height:20px;border-radius:50%;cursor:pointer;font-weight:700;line-height:1}
 
+/* Badge de grupo (SIM/NÃO) */
+.gbadge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(29,29,27,.06);color:#525866}
+.gbadge.gsim{background:rgba(31,157,87,.15);color:var(--success)}
+.gbadge.gnao{background:rgba(226,59,59,.12);color:var(--danger)}
+
 /* Chips do scanner (camisa / grupo) */
 .scan-extras{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:2px}
 .scan-chip{background:#fff;border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:14px;color:var(--muted)}

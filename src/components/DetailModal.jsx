@@ -69,10 +69,10 @@ export default function DetailModal({ participantId, eventos = [], readOnly, onC
   const fileRef = useRef(null);
 
   useEffect(() => {
-    setP(null); setErro(false); setFoto(null); setHist([]); setAba('resumo');
-    QRCode.toDataURL(String(participantId), { margin: 1, width: 240 }).then(setQr).catch(() => setQr(''));
+    setP(null); setErro(false); setFoto(null); setHist([]); setAba('resumo'); setQr('');
     api.detalhe(participantId).then((d) => {
       setP(d);
+      QRCode.toDataURL(String(d.pessoa_token || d.id), { margin: 1, width: 240 }).then(setQr).catch(() => setQr(''));
       if (d.temFoto) api.getFoto(participantId).then((r) => setFoto(r.foto || '')).catch(() => {});
     }).catch(() => setErro(true));
     api.historico(participantId).then((r) => setHist(r.historico || [])).catch(() => {});
@@ -121,7 +121,7 @@ export default function DetailModal({ participantId, eventos = [], readOnly, onC
   }
 
   function mensagemQR() {
-    const link = `${window.location.origin}/qr/${p.id}`;
+    const link = `${window.location.origin}/qr/${p.pessoa_token || p.id}`;
     return `Olá ${p.nome}! 👋 Para agilizar seu credenciamento, salve seu QR de acesso: ${link} — é só mostrar na entrada. Time Holding Brasil.`;
   }
   async function copiarWhats() {
