@@ -8,9 +8,6 @@ const base = {
   strokeLinejoin: 'round',
 };
 
-export const IconBadge = (p) => (
-  <svg {...base} strokeWidth="2.2" {...p}><path d="M20 7h-7l-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2Z" /><path d="M9 14l2 2 4-4" /></svg>
-);
 export const IconImport = (p) => (
   <svg {...base} {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
 );

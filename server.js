@@ -202,7 +202,7 @@ api.put('/participantes/:id', auth, async (req, res) => {
   try {
     const atualizado = await db.repo.atualizar(req.params.id, req.body);
     if (!atualizado) return res.status(404).json({ error: 'nao_encontrado' });
-    await db.audit(atualizado.id, atualizado.nome, 'editar', req.operador, null);
+    await db.audit(atualizado.id, atualizado.nome, 'editar', req.operador, null, atualizado.evento_id);
     res.json(atualizado);
   } catch (e) {
     console.error(e.message);

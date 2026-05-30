@@ -264,4 +264,4 @@ async function init() {
   unwrap(await sb().from('eventos').select('id', { count: 'exact', head: true }));
 }
 
-module.exports = { sb, repo, audit, init, normalize, newId };
+module.exports = { repo, audit, init };
