@@ -224,8 +224,10 @@ function Credenciamento({ operador, onLogout }) {
       const d = await api.exportar(eventoId);
       const XLSX = await import('xlsx');
       const origin = window.location.origin;
+      const tok = (p) => p.pessoa_token || p.id;
       const rows = (d.list || []).map((p) => ({
-        'Link/QR de credenciamento': `${origin}/qr/${p.pessoa_token || p.id}`,
+        'QR (imagem)': `${origin}/qrimg/${tok(p)}`, // vira =IMAGE() abaixo
+        'QR (link)': `${origin}/qr/${tok(p)}`,
         Nome: p.nome, Tipo: tipoLabel(p.tipo), Turma: p.turma, Camisa: p.tamanhoCamisa, 'No grupo': p.grupo,
         Instrução: p.instrucao, Credenciado: p.credenciado ? 'SIM' : 'NÃO',
         'Data credenciamento': p.dataCredenciamento,
@@ -233,10 +235,18 @@ function Credenciamento({ operador, onLogout }) {
         ...(p.dados_extra && typeof p.dados_extra === 'object' ? p.dados_extra : {}),
       }));
       const ws = XLSX.utils.json_to_sheet(rows);
+      // Converte a 1ª coluna em fórmula =IMAGE(url) -> Google Sheets/Excel 365 mostram o QR na célula.
+      const range = XLSX.utils.decode_range(ws['!ref']);
+      for (let r = 1; r <= range.e.r; r++) {
+        const addr = XLSX.utils.encode_cell({ r, c: 0 });
+        const cell = ws[addr];
+        if (cell && cell.v) ws[addr] = { t: 's', f: `IMAGE("${cell.v}")` };
+      }
+      ws['!cols'] = [{ wch: 16 }, { wch: 44 }];
       const wbk = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wbk, ws, 'Credenciamento');
       XLSX.writeFile(wbk, `credenciamento-${eventoId}.xlsx`);
-      toast('Excel exportado', 'success');
+      toast('Excel exportado (QR como imagem via IMAGE)', 'success');
     } catch { toast('Erro ao exportar', 'danger'); }
   }
   function abrirImport() { fileRef.current?.click(); }

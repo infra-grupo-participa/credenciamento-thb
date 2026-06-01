@@ -345,6 +345,18 @@ app.get('/qr/:token', async (req, res) => {
   }
 });
 
+// Imagem PNG do QR (token) — para usar com =IMAGE(...) na planilha.
+app.get('/qrimg/:token', async (req, res) => {
+  try {
+    const buf = await QRCode.toBuffer(String(req.params.token), { margin: 1, width: 300, type: 'png' });
+    res.set('Content-Type', 'image/png');
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.send(buf);
+  } catch {
+    res.status(404).end();
+  }
+});
+
 app.use(express.static(DIST));
 
 // Fallback SPA: qualquer rota que não seja /api devolve o index.html.
