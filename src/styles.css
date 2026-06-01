@@ -296,7 +296,11 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 .filtros-av select{min-width:200px;max-width:280px}
 .filtros-av input{min-width:160px}
 .filtros-hint{font-size:12px;color:var(--muted)}
-@media (max-width:720px){.filtros-av{padding:0 16px}.filtros-hint{display:none}}
+.filtros-chips{max-width:1400px;margin:8px auto 0;padding:0 24px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.filtro-chip{display:inline-flex;align-items:center;gap:6px;background:rgba(239,124,0,.12);border:1px solid #ffd9b0;color:#a85500;border-radius:999px;padding:5px 6px 5px 12px;font-size:12.5px}
+.filtro-chip b{font-weight:700}
+.filtro-chip button{border:none;background:rgba(0,0,0,.08);color:var(--text);width:20px;height:20px;border-radius:50%;cursor:pointer;font-weight:700;line-height:1}
+@media (max-width:720px){.filtros-av{padding:0 16px}.filtros-hint{display:none}.filtros-chips{padding:0 16px}}
 
 /* Banner offline */
 .offline-banner{max-width:1400px;margin:12px auto 0;padding:10px 16px;border-radius:12px;background:#fff4e0;border:1px solid #ffd58a;color:#8a5200;font-size:13px;font-weight:600;display:flex;gap:8px;flex-wrap:wrap}

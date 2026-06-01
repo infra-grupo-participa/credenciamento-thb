@@ -60,8 +60,8 @@ function Credenciamento({ operador, onLogout }) {
   const [tipoFiltro, setTipoFiltro] = useState('todos');
   const [busca, setBusca] = useState('');
   const [ordem, setOrdem] = useState('nome');
-  const [filtroCol, setFiltroCol] = useState('');
-  const [filtroVal, setFiltroVal] = useState('');
+  const [filtros, setFiltros] = useState([]); // [{ col, key, label }]
+  const [novoCol, setNovoCol] = useState('');
   const [filtrosOpen, setFiltrosOpen] = useState(false);
   const [editando, setEditando] = useState(undefined);
   const [novoNome, setNovoNome] = useState('');
@@ -163,9 +163,9 @@ function Credenciamento({ operador, onLogout }) {
       if (filtro === 'credenciados' && !x.credenciado) return false;
       if (filtro === 'pendentes' && x.credenciado) return false;
       if (tipoFiltro !== 'todos' && x.tipo !== tipoFiltro) return false;
-      if (filtroCol && filtroVal) {
-        const v = norm(String((x.dados_extra && x.dados_extra[filtroCol]) || ''));
-        if (!v.includes(norm(filtroVal))) return false;
+      for (const f of filtros) {
+        const rv = norm(String((x.dados_extra && x.dados_extra[f.col]) || '').trim());
+        if (rv !== f.key) return false;
       }
       if (!q) return true;
       return norm(x.nome).includes(q) || norm(x.email).includes(q) || norm(x.turma).includes(q)
@@ -181,7 +181,7 @@ function Credenciamento({ operador, onLogout }) {
       return 0;
     });
     return arr;
-  }, [lista, busca, filtro, tipoFiltro, ordem, filtroCol, filtroVal]);
+  }, [lista, busca, filtro, tipoFiltro, ordem, filtros]);
 
   // Colunas disponíveis (todas as da planilha original) para filtro avançado.
   const colunas = useMemo(() => {
@@ -189,6 +189,26 @@ function Credenciamento({ operador, onLogout }) {
     lista.forEach((p) => { if (p.dados_extra && typeof p.dados_extra === 'object') Object.keys(p.dados_extra).forEach((k) => s.add(k)); });
     return [...s].sort();
   }, [lista]);
+
+  // Valores distintos (com contagem) que aparecem numa coluna — para o operador escolher.
+  function valoresDe(col) {
+    const m = new Map();
+    lista.forEach((p) => {
+      const raw = p.dados_extra && p.dados_extra[col];
+      const v = raw == null ? '' : String(raw).trim();
+      if (!v) return;
+      const k = norm(v);
+      if (!m.has(k)) m.set(k, { key: k, label: v, count: 0 });
+      m.get(k).count++;
+    });
+    return [...m.values()].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'pt-BR'));
+  }
+  function addFiltro(col, key) {
+    const v = valoresDe(col).find((x) => x.key === key);
+    if (!v) return;
+    if (filtros.some((f) => f.col === col && f.key === key)) return;
+    setFiltros([...filtros, { col, key, label: v.label }]);
+  }
 
   const total = lista.length;
   const cred = lista.filter((x) => x.credenciado).length;
@@ -352,20 +372,36 @@ function Credenciamento({ operador, onLogout }) {
           <option value="credenciado-first">Credenciados primeiro</option>
           <option value="pendente-first">Pendentes primeiro</option>
         </select>
-        <button className={`btn ${filtrosOpen || (filtroCol && filtroVal) ? 'primary' : ''}`} onClick={() => setFiltrosOpen((v) => !v)}>
-          Filtros{filtroCol && filtroVal ? ' (1)' : ''}
+        <button className={`btn ${filtrosOpen || filtros.length ? 'primary' : ''}`} onClick={() => setFiltrosOpen((v) => !v)}>
+          Filtros{filtros.length ? ` (${filtros.length})` : ''}
         </button>
       </div>
 
       {filtrosOpen && (
         <div className="filtros-av">
-          <select value={filtroCol} onChange={(e) => setFiltroCol(e.target.value)}>
-            <option value="">Coluna…</option>
+          <select value={novoCol} onChange={(e) => setNovoCol(e.target.value)}>
+            <option value="">+ Filtrar por coluna…</option>
             {colunas.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
-          <input value={filtroVal} onChange={(e) => setFiltroVal(e.target.value)} placeholder="contém… (ex.: Sim)" />
-          {(filtroCol || filtroVal) && <button className="btn ghost" onClick={() => { setFiltroCol(''); setFiltroVal(''); }}>Limpar</button>}
-          <span className="filtros-hint">Filtre por qualquer coluna da planilha (ex.: “Possível comprador?” = Sim).</span>
+          {novoCol && (
+            <select value="" onChange={(e) => { if (e.target.value) { addFiltro(novoCol, e.target.value); setNovoCol(''); } }}>
+              <option value="">Escolha o valor…</option>
+              {valoresDe(novoCol).map((v) => <option key={v.key} value={v.key}>{v.label} ({v.count})</option>)}
+            </select>
+          )}
+          <span className="filtros-hint">Escolha a coluna e o valor (sem digitar). Empilhe filtros para cruzar dados.</span>
+        </div>
+      )}
+
+      {filtros.length > 0 && (
+        <div className="filtros-chips">
+          {filtros.map((f, i) => (
+            <span className="filtro-chip" key={`${f.col}-${f.key}`}>
+              <b>{f.col}</b>: {f.label}
+              <button onClick={() => setFiltros(filtros.filter((_, j) => j !== i))} title="Remover">×</button>
+            </span>
+          ))}
+          <button className="btn ghost" onClick={() => setFiltros([])}>Limpar tudo</button>
         </div>
       )}
 
