@@ -225,15 +225,24 @@ function Credenciamento({ operador, onLogout }) {
       const XLSX = await import('xlsx');
       const origin = window.location.origin;
       const tok = (p) => p.pessoa_token || p.id;
-      const rows = (d.list || []).map((p) => ({
-        'QR (imagem)': `${origin}/qrimg/${tok(p)}`, // vira =IMAGE() abaixo
-        'QR (link)': `${origin}/qr/${tok(p)}`,
-        Nome: p.nome, Tipo: tipoLabel(p.tipo), Turma: p.turma, Camisa: p.tamanhoCamisa, 'No grupo': p.grupo,
-        Instrução: p.instrucao, Credenciado: p.credenciado ? 'SIM' : 'NÃO',
-        'Data credenciamento': p.dataCredenciamento,
-        // todas as colunas originais da planilha:
-        ...(p.dados_extra && typeof p.dados_extra === 'object' ? p.dados_extra : {}),
-      }));
+      // Colunas estruturadas (canônicas) sempre presentes; removidas do dados_extra p/ não duplicar/sobrescrever.
+      const omitir = ['Nome', 'Email', 'Telefone', 'Documento', 'Cidade', 'Estado', 'Profissão', 'Instrução', 'Turma'];
+      const rows = (d.list || []).map((p) => {
+        const extra = p.dados_extra && typeof p.dados_extra === 'object' ? { ...p.dados_extra } : {};
+        omitir.forEach((k) => delete extra[k]);
+        return {
+          'QR (imagem)': `${origin}/qrimg/${tok(p)}`, // vira =IMAGE() abaixo
+          'QR (link)': `${origin}/qr/${tok(p)}`,
+          Nome: p.nome, Email: p.email, Telefone: p.telefone, Documento: p.documento,
+          Tipo: tipoLabel(p.tipo), Turma: p.turma, Camisa: p.tamanhoCamisa, 'No grupo': p.grupo,
+          Cidade: p.cidade, Estado: p.estado, Profissão: p.profissao, Nível: p.nivel,
+          'Nome no crachá': p.nomeCracha, 'Convidado por': p.convidadoPor,
+          Instrução: p.instrucao, Credenciado: p.credenciado ? 'SIM' : 'NÃO',
+          'Data credenciamento': p.dataCredenciamento,
+          // demais colunas originais da planilha:
+          ...extra,
+        };
+      });
       const ws = XLSX.utils.json_to_sheet(rows);
       // Converte a 1ª coluna em fórmula =IMAGE(url) -> Google Sheets/Excel 365 mostram o QR na célula.
       const range = XLSX.utils.decode_range(ws['!ref']);
