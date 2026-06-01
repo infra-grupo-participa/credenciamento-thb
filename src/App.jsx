@@ -169,8 +169,12 @@ function Credenciamento({ operador, onLogout }) {
         if (rv !== f.key) return false;
       }
       if (!q) return true;
+      // Busca por dígitos (CPF/telefone) ignorando pontuação — útil no balcão (ex.: últimos dígitos).
+      const qd = q.replace(/\D/g, '');
+      if (qd && (String(x.documento || '').replace(/\D/g, '').includes(qd) || String(x.telefone || '').replace(/\D/g, '').includes(qd))) return true;
       return norm(x.nome).includes(q) || norm(x.email).includes(q) || norm(x.turma).includes(q)
-        || norm(x.telefone).includes(q) || norm(x.nomeCracha).includes(q) || norm(x.convidadoPor).includes(q);
+        || norm(x.telefone).includes(q) || norm(x.nomeCracha).includes(q) || norm(x.convidadoPor).includes(q)
+        || norm(x.documento).includes(q);
     });
     arr.sort((a, b) => {
       if (ordem === 'nome') return a.nome.localeCompare(b.nome, 'pt-BR');
