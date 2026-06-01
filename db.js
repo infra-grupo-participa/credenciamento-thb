@@ -150,11 +150,11 @@ const repo = {
     if (!code) return [];
     return unwrap(await sb().from(TABELA).select('id,nome,evento_id').or(`pessoa_token.eq.${code},id.eq.${code}`));
   },
-  // Nome para a página pública do QR.
-  async nomePorToken(token) {
-    if (!token) return '';
-    const data = unwrap(await sb().from(TABELA).select('nome').eq('pessoa_token', token).limit(1));
-    return data.length ? data[0].nome : '';
+  // Nome + evento para a página pública do QR.
+  async infoPorToken(token) {
+    if (!token) return null;
+    const data = unwrap(await sb().from(TABELA).select('nome,evento_id').eq('pessoa_token', token).limit(1));
+    return data.length ? data[0] : null;
   },
 
   async criar(p) {

@@ -320,25 +320,36 @@ app.use('/api', api);
 /* ==================== FRONT-END (build do Vite em /dist) ==================== */
 const DIST = path.join(__dirname, 'dist');
 
+// Nome público do evento conforme o grupo do token.
+function nomeEventoPublico(eventoId) {
+  const e = String(eventoId || '');
+  if (e.startsWith('imersao')) return 'Imersão Holding Sem Improviso';
+  if (e.startsWith('clinica')) return 'Clínica de Holding Familiar';
+  return 'Credenciamento';
+}
+
 // Página pública do QR do participante (token) — para enviar ao aluno.
 app.get('/qr/:token', async (req, res) => {
   const esc = (s) => String(s || '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
   try {
-    let nome = '';
-    try { nome = await db.repo.nomePorToken(req.params.token); } catch { /* segue */ }
+    let nome = ''; let titulo = 'Credenciamento';
+    try {
+      const info = await db.repo.infoPorToken(req.params.token);
+      if (info) { nome = info.nome; titulo = nomeEventoPublico(info.evento_id); }
+    } catch { /* segue */ }
     const dataUrl = await QRCode.toDataURL(String(req.params.token), { margin: 1, width: 320 });
     res.set('Content-Type', 'text/html; charset=utf-8');
     res.send(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1">
-      <title>Seu QR — Credenciamento THB</title>
+      <title>${esc(titulo)}</title>
       <style>body{margin:0;font-family:Inter,system-ui,Arial,sans-serif;background:#f4f5f7;color:#1d1d1b;
       display:flex;min-height:100vh;align-items:center;justify-content:center;padding:24px}
       .card{background:#fff;border:1px solid #e5e7ec;border-radius:18px;box-shadow:0 12px 30px rgba(29,29,27,.1);padding:28px;text-align:center;max-width:360px;width:100%}
-      .sub{color:#ef7c00;font-weight:700;font-size:13px}h1{font-size:22px;margin:8px 0 2px}
+      h1{font-size:21px;margin:0 0 4px;color:#ef7c00}.nome{font-size:17px;font-weight:700;margin:0 0 2px}
       p{color:#6f7682;font-size:14px;margin:6px 0 18px}img{width:280px;height:280px}</style></head>
-      <body><div class="card"><div class="sub">TIME HOLDING BRASIL</div>
-      <h1>${esc(nome) || 'Seu credenciamento'}</h1>
-      <p>Mostre este QR na entrada para credenciar mais rápido.</p>
+      <body><div class="card"><h1>${esc(titulo)}</h1>
+      ${nome ? `<div class="nome">${esc(nome)}</div>` : ''}
+      <p>Mostre este QR na entrada.</p>
       <img src="${dataUrl}" alt="QR de credenciamento"/></div></body></html>`);
   } catch {
     res.status(404).send('QR não encontrado');
