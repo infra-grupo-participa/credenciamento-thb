@@ -13,6 +13,7 @@ import SettingsModal from './components/SettingsModal.jsx';
 import { beepOk, beepErr } from './beep.js';
 import { enfileirar, flushFila, tamanhoFila } from './offline.js';
 import { tipoLabel, tipoCls } from './tipos.js';
+import { linhasExport, aplicarQrImagem } from './exportRows.js';
 import {
   IconImport, IconExport, IconPlus, IconSearch, IconCheck, IconSquare, IconEdit, IconLogout,
 } from './icons.jsx';
@@ -224,50 +225,9 @@ function Credenciamento({ operador, onLogout }) {
       const d = await api.exportar(eventoId);
       const XLSX = await import('xlsx');
       const origin = window.location.origin;
-      const tok = (p) => p.pessoa_token || p.id;
-      // Conjunto fixo e enxuto de colunas (sem despejar o dados_extra cru -> sem duplicidade/lixo).
-      const limpa = (v) => { const s = v == null ? '' : String(v).trim(); return s === '-' ? '' : s; };
-      const pega = (ex, ...keys) => { for (const k of keys) { const v = limpa(ex && ex[k]); if (v) return v; } return ''; };
-      const simNao = (v) => { const s = limpa(v).toLowerCase(); if (!s) return ''; if (s[0] === 's') return 'Sim'; if (s[0] === 'n') return 'Não'; return limpa(v); };
-      const rows = (d.list || []).map((p) => {
-        const ex = p.dados_extra && typeof p.dados_extra === 'object' ? p.dados_extra : {};
-        const endereco = pega(ex, 'THB - Endereço') || [pega(ex, 'Endereço'), pega(ex, 'Número')].filter(Boolean).join(', ');
-        return {
-          'QR (imagem)': `${origin}/qrimg/${tok(p)}`, // vira =IMAGE() abaixo
-          'QR (link)': `${origin}/qr/${tok(p)}`,
-          'Nome': p.nome,
-          'Tipo': tipoLabel(p.tipo),
-          'E-mail': p.email,
-          'Telefone': p.telefone,
-          'Documento': p.documento,
-          'Cidade': p.cidade,
-          'Estado': p.estado,
-          'Endereço': endereco,
-          'Bairro': pega(ex, 'THB - Bairro', 'Bairro'),
-          'CEP': pega(ex, 'THB - CEP', 'CEP'),
-          'Turma': p.turma,
-          'Camisa': p.tamanhoCamisa,
-          'Nome no crachá': p.nomeCracha,
-          'No grupo': simNao(p.grupo),
-          'Possível comprador?': pega(ex, 'Possível comprador?'),
-          'Convidado por': p.convidadoPor,
-          'Profissão': p.profissao,
-          'Nível': p.nivel,
-          'Plano (THB)': pega(ex, 'THB - Plano'),
-          'É sócio (THB)': pega(ex, 'THB - É sócio'),
-          'Credenciado': p.credenciado ? 'SIM' : 'NÃO',
-          'Data credenciamento': p.dataCredenciamento,
-        };
-      });
+      const rows = linhasExport(d.list, origin);
       const ws = XLSX.utils.json_to_sheet(rows);
-      // Converte a 1ª coluna em fórmula =IMAGE(url) -> Google Sheets/Excel 365 mostram o QR na célula.
-      const range = XLSX.utils.decode_range(ws['!ref']);
-      for (let r = 1; r <= range.e.r; r++) {
-        const addr = XLSX.utils.encode_cell({ r, c: 0 });
-        const cell = ws[addr];
-        if (cell && cell.v) ws[addr] = { t: 's', f: `IMAGE("${cell.v}")` };
-      }
-      ws['!cols'] = [{ wch: 14 }, { wch: 40 }, { wch: 26 }, { wch: 10 }, { wch: 28 }, { wch: 15 }, { wch: 16 }];
+      aplicarQrImagem(XLSX, ws); // fórmula =IMAGE() na coluna do QR + larguras
       const wbk = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wbk, ws, 'Credenciamento');
       XLSX.writeFile(wbk, `credenciamento-${eventoId}.xlsx`);

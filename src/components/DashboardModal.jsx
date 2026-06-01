@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api.js';
 import { tipoLabel } from '../tipos.js';
+import { linhasExport, aplicarQrImagem } from '../exportRows.js';
 import { useToast } from './Toasts.jsx';
 import { IconClose } from '../icons.jsx';
 
@@ -58,12 +59,13 @@ export default function DashboardModal({ eventoId, eventoNome, lista, onClose })
   async function exportarCSV(filtro) {
     try {
       const d = await api.exportar(eventoId);
-      let rows = d.list || [];
-      if (filtro === 'cred') rows = rows.filter((p) => p.credenciado);
-      if (filtro === 'pend') rows = rows.filter((p) => !p.credenciado);
-      const cab = ['Nome', 'Tipo', 'Turma', 'Instrução', 'Credenciado', 'Data credenciamento', 'E-mail', 'Telefone', 'Documento', 'Convidado por'];
-      const linhas = rows.map((p) => [p.nome, tipoLabel(p.tipo), p.turma, p.instrucao,
-        p.credenciado ? 'SIM' : 'NÃO', p.dataCredenciamento, p.email, p.telefone, p.documento, p.convidadoPor]);
+      let lista = d.list || [];
+      if (filtro === 'cred') lista = lista.filter((p) => p.credenciado);
+      if (filtro === 'pend') lista = lista.filter((p) => !p.credenciado);
+      // Mesmo formato do Excel, sem a coluna de imagem do QR (CSV não renderiza).
+      const rows = linhasExport(lista, window.location.origin).map(({ 'QR (imagem)': _img, ...rest }) => rest);
+      const cab = rows.length ? Object.keys(rows[0]) : [];
+      const linhas = rows.map((r) => cab.map((k) => r[k]));
       const sufixo = filtro === 'cred' ? 'credenciados' : filtro === 'pend' ? 'no-show' : 'todos';
       baixarCSV(`${eventoId}-${sufixo}.csv`, cab, linhas);
       toast('CSV gerado', 'success');
@@ -74,16 +76,9 @@ export default function DashboardModal({ eventoId, eventoNome, lista, onClose })
     try {
       const d = await api.exportar(eventoId);
       const XLSX = await import('xlsx');
-      const origin = window.location.origin;
-      const rows = (d.list || []).map((p) => ({
-        Nome: p.nome, 'Nome do crachá': p.nomeCracha, 'E-mail': p.email, Telefone: p.telefone,
-        Tipo: tipoLabel(p.tipo), Turma: p.turma, Camisa: p.tamanhoCamisa, 'No grupo': p.grupo,
-        Instrução: p.instrucao, Nível: p.nivel, Documento: p.documento, Cidade: p.cidade, Estado: p.estado,
-        'Convidado por': p.convidadoPor, Credenciado: p.credenciado ? 'SIM' : 'NÃO',
-        'Data credenciamento': p.dataCredenciamento,
-        'Link de credenciamento': `${origin}/qr/${p.pessoa_token || p.id}`,
-      }));
+      const rows = linhasExport(d.list, window.location.origin);
       const ws = XLSX.utils.json_to_sheet(rows);
+      aplicarQrImagem(XLSX, ws);
       const wbk = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wbk, ws, 'Credenciamento');
       XLSX.writeFile(wbk, `${eventoId}-credenciamento.xlsx`);
