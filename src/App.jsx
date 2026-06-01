@@ -225,22 +225,38 @@ function Credenciamento({ operador, onLogout }) {
       const XLSX = await import('xlsx');
       const origin = window.location.origin;
       const tok = (p) => p.pessoa_token || p.id;
-      // Colunas estruturadas (canônicas) sempre presentes; removidas do dados_extra p/ não duplicar/sobrescrever.
-      const omitir = ['Nome', 'Email', 'Telefone', 'Documento', 'Cidade', 'Estado', 'Profissão', 'Instrução', 'Turma'];
+      // Conjunto fixo e enxuto de colunas (sem despejar o dados_extra cru -> sem duplicidade/lixo).
+      const limpa = (v) => { const s = v == null ? '' : String(v).trim(); return s === '-' ? '' : s; };
+      const pega = (ex, ...keys) => { for (const k of keys) { const v = limpa(ex && ex[k]); if (v) return v; } return ''; };
+      const simNao = (v) => { const s = limpa(v).toLowerCase(); if (!s) return ''; if (s[0] === 's') return 'Sim'; if (s[0] === 'n') return 'Não'; return limpa(v); };
       const rows = (d.list || []).map((p) => {
-        const extra = p.dados_extra && typeof p.dados_extra === 'object' ? { ...p.dados_extra } : {};
-        omitir.forEach((k) => delete extra[k]);
+        const ex = p.dados_extra && typeof p.dados_extra === 'object' ? p.dados_extra : {};
+        const endereco = pega(ex, 'THB - Endereço') || [pega(ex, 'Endereço'), pega(ex, 'Número')].filter(Boolean).join(', ');
         return {
           'QR (imagem)': `${origin}/qrimg/${tok(p)}`, // vira =IMAGE() abaixo
           'QR (link)': `${origin}/qr/${tok(p)}`,
-          Nome: p.nome, Email: p.email, Telefone: p.telefone, Documento: p.documento,
-          Tipo: tipoLabel(p.tipo), Turma: p.turma, Camisa: p.tamanhoCamisa, 'No grupo': p.grupo,
-          Cidade: p.cidade, Estado: p.estado, Profissão: p.profissao, Nível: p.nivel,
-          'Nome no crachá': p.nomeCracha, 'Convidado por': p.convidadoPor,
-          Instrução: p.instrucao, Credenciado: p.credenciado ? 'SIM' : 'NÃO',
+          'Nome': p.nome,
+          'Tipo': tipoLabel(p.tipo),
+          'E-mail': p.email,
+          'Telefone': p.telefone,
+          'Documento': p.documento,
+          'Cidade': p.cidade,
+          'Estado': p.estado,
+          'Endereço': endereco,
+          'Bairro': pega(ex, 'THB - Bairro', 'Bairro'),
+          'CEP': pega(ex, 'THB - CEP', 'CEP'),
+          'Turma': p.turma,
+          'Camisa': p.tamanhoCamisa,
+          'Nome no crachá': p.nomeCracha,
+          'No grupo': simNao(p.grupo),
+          'Possível comprador?': pega(ex, 'Possível comprador?'),
+          'Convidado por': p.convidadoPor,
+          'Profissão': p.profissao,
+          'Nível': p.nivel,
+          'Plano (THB)': pega(ex, 'THB - Plano'),
+          'É sócio (THB)': pega(ex, 'THB - É sócio'),
+          'Credenciado': p.credenciado ? 'SIM' : 'NÃO',
           'Data credenciamento': p.dataCredenciamento,
-          // demais colunas originais da planilha:
-          ...extra,
         };
       });
       const ws = XLSX.utils.json_to_sheet(rows);
@@ -251,7 +267,7 @@ function Credenciamento({ operador, onLogout }) {
         const cell = ws[addr];
         if (cell && cell.v) ws[addr] = { t: 's', f: `IMAGE("${cell.v}")` };
       }
-      ws['!cols'] = [{ wch: 16 }, { wch: 44 }];
+      ws['!cols'] = [{ wch: 14 }, { wch: 40 }, { wch: 26 }, { wch: 10 }, { wch: 28 }, { wch: 15 }, { wch: 16 }];
       const wbk = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wbk, ws, 'Credenciamento');
       XLSX.writeFile(wbk, `credenciamento-${eventoId}.xlsx`);
