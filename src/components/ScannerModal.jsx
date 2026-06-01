@@ -22,6 +22,9 @@ export default function ScannerModal({ onDetected, onClose, eventoNome }) {
   const busy = useRef(false);
   const [erro, setErro] = useState('');
   const [res, setRes] = useState(null);
+  // Mantém o callback mais recente sem re-rodar o efeito da câmera (evita o flicker).
+  const cbRef = useRef(onDetected);
+  useEffect(() => { cbRef.current = onDetected; }, [onDetected]);
 
   useEffect(() => {
     let stream;
@@ -47,11 +50,11 @@ export default function ScannerModal({ onDetected, onClose, eventoNome }) {
     }
     async function handle(id) {
       busy.current = true;
-      try { setRes(await onDetected(id)); } catch { setRes({ status: 'erro', nome: 'Erro ao processar' }); }
+      try { setRes(await cbRef.current(id)); } catch { setRes({ status: 'erro', nome: 'Erro ao processar' }); }
       setTimeout(() => { busy.current = false; }, 1000);
     }
     return () => { cancelAnimationFrame(rafRef.current); if (stream) stream.getTracks().forEach((t) => t.stop()); };
-  }, [onDetected]);
+  }, []);
 
   const st = res && (STATUS[res.status] || STATUS.erro);
 

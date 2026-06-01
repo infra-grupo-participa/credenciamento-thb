@@ -60,6 +60,9 @@ function Credenciamento({ operador, onLogout }) {
   const [tipoFiltro, setTipoFiltro] = useState('todos');
   const [busca, setBusca] = useState('');
   const [ordem, setOrdem] = useState('nome');
+  const [filtroCol, setFiltroCol] = useState('');
+  const [filtroVal, setFiltroVal] = useState('');
+  const [filtrosOpen, setFiltrosOpen] = useState(false);
   const [editando, setEditando] = useState(undefined);
   const [novoNome, setNovoNome] = useState('');
   const [detalheId, setDetalheId] = useState(null);
@@ -160,6 +163,10 @@ function Credenciamento({ operador, onLogout }) {
       if (filtro === 'credenciados' && !x.credenciado) return false;
       if (filtro === 'pendentes' && x.credenciado) return false;
       if (tipoFiltro !== 'todos' && x.tipo !== tipoFiltro) return false;
+      if (filtroCol && filtroVal) {
+        const v = norm(String((x.dados_extra && x.dados_extra[filtroCol]) || ''));
+        if (!v.includes(norm(filtroVal))) return false;
+      }
       if (!q) return true;
       return norm(x.nome).includes(q) || norm(x.email).includes(q) || norm(x.turma).includes(q)
         || norm(x.telefone).includes(q) || norm(x.nomeCracha).includes(q) || norm(x.convidadoPor).includes(q);
@@ -174,7 +181,14 @@ function Credenciamento({ operador, onLogout }) {
       return 0;
     });
     return arr;
-  }, [lista, busca, filtro, tipoFiltro, ordem]);
+  }, [lista, busca, filtro, tipoFiltro, ordem, filtroCol, filtroVal]);
+
+  // Colunas disponíveis (todas as da planilha original) para filtro avançado.
+  const colunas = useMemo(() => {
+    const s = new Set();
+    lista.forEach((p) => { if (p.dados_extra && typeof p.dados_extra === 'object') Object.keys(p.dados_extra).forEach((k) => s.add(k)); });
+    return [...s].sort();
+  }, [lista]);
 
   const total = lista.length;
   const cred = lista.filter((x) => x.credenciado).length;
@@ -188,13 +202,21 @@ function Credenciamento({ operador, onLogout }) {
   async function exportar() {
     try {
       const d = await api.exportar(eventoId);
-      const blob = new Blob([JSON.stringify(d.list, null, 2)], { type: 'application/json' });
-      const a = document.createElement('a');
-      const date = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-      a.href = URL.createObjectURL(blob);
-      a.download = `credenciamento-${eventoId}-${date}.json`;
-      a.click(); URL.revokeObjectURL(a.href);
-      toast('Backup exportado', 'success');
+      const XLSX = await import('xlsx');
+      const origin = window.location.origin;
+      const rows = (d.list || []).map((p) => ({
+        'Link/QR de credenciamento': `${origin}/qr/${p.pessoa_token || p.id}`,
+        Nome: p.nome, Tipo: tipoLabel(p.tipo), Turma: p.turma, Camisa: p.tamanhoCamisa, 'No grupo': p.grupo,
+        Instrução: p.instrucao, Credenciado: p.credenciado ? 'SIM' : 'NÃO',
+        'Data credenciamento': p.dataCredenciamento,
+        // todas as colunas originais da planilha:
+        ...(p.dados_extra && typeof p.dados_extra === 'object' ? p.dados_extra : {}),
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wbk = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wbk, ws, 'Credenciamento');
+      XLSX.writeFile(wbk, `credenciamento-${eventoId}.xlsx`);
+      toast('Excel exportado', 'success');
     } catch { toast('Erro ao exportar', 'danger'); }
   }
   function abrirImport() { fileRef.current?.click(); }
@@ -263,7 +285,7 @@ function Credenciamento({ operador, onLogout }) {
             {!readOnly && <button className="btn" onClick={() => setScanOpen(true)} title="Ler QR do crachá"><IconSearch /> Escanear</button>}
             {!readOnly && <button className="btn ghost" onClick={abrirImport} title="Importar JSON"><IconImport /> Importar</button>}
             <button className="btn ghost" onClick={() => setDashOpen(true)} title="Painel do evento">📊 Painel</button>
-            <button className="btn ghost" onClick={exportar} title="Exportar JSON"><IconExport /> Exportar</button>
+            <button className="btn ghost" onClick={exportar} title="Exportar Excel (.xlsx) com dados + link/QR"><IconExport /> Exportar Excel</button>
             {!readOnly && <button className="btn primary" onClick={() => { setNovoNome(''); setEditando(null); }}><IconPlus /> Novo participante</button>}
             <button className="btn ghost" onClick={() => setSettingsOpen(true)} title="Configurações">⚙</button>
             <span className="op-chip"><span className="who">{operador}</span>
@@ -330,7 +352,22 @@ function Credenciamento({ operador, onLogout }) {
           <option value="credenciado-first">Credenciados primeiro</option>
           <option value="pendente-first">Pendentes primeiro</option>
         </select>
+        <button className={`btn ${filtrosOpen || (filtroCol && filtroVal) ? 'primary' : ''}`} onClick={() => setFiltrosOpen((v) => !v)}>
+          Filtros{filtroCol && filtroVal ? ' (1)' : ''}
+        </button>
       </div>
+
+      {filtrosOpen && (
+        <div className="filtros-av">
+          <select value={filtroCol} onChange={(e) => setFiltroCol(e.target.value)}>
+            <option value="">Coluna…</option>
+            {colunas.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <input value={filtroVal} onChange={(e) => setFiltroVal(e.target.value)} placeholder="contém… (ex.: Sim)" />
+          {(filtroCol || filtroVal) && <button className="btn ghost" onClick={() => { setFiltroCol(''); setFiltroVal(''); }}>Limpar</button>}
+          <span className="filtros-hint">Filtre por qualquer coluna da planilha (ex.: “Possível comprador?” = Sim).</span>
+        </div>
+      )}
 
       <main className="list-wrap">
         <div className="count-row">

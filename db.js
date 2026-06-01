@@ -5,13 +5,21 @@ const { createClient } = require('@supabase/supabase-js');
 
 let client = null;
 
-// Token estável da PESSOA (mesmo nos dois dias da Clínica). Deriva de documento
-// (só dígitos) > e-mail > nome. O QR carrega este token; a validação é por dia.
-function tokenDe({ documento, email, nome }) {
+// Grupo do evento: a Clínica (D1/D2) compartilha o token; a Imersão tem o seu.
+function grupoDe(eventoId) {
+  const e = String(eventoId || '');
+  if (e.startsWith('clinica')) return 'clinica';
+  if (e.startsWith('imersao')) return 'imersao';
+  return e || 'geral';
+}
+// Token da pessoa POR GRUPO: o mesmo nos dois dias da Clínica, mas diferente entre
+// Imersão e Clínica (links distintos + um QR só vale no seu grupo). Deriva de
+// documento (só dígitos) > e-mail > nome.
+function tokenDe(grupo, { documento, email, nome }) {
   const doc = String(documento || '').replace(/\D/g, '');
   const key = doc || String(email || '').trim().toLowerCase() || String(nome || '').trim().toLowerCase();
   if (!key) return null;
-  return crypto.createHash('sha1').update(key).digest('hex').slice(0, 24);
+  return crypto.createHash('sha1').update(`${grupo}|${key}`).digest('hex').slice(0, 24);
 }
 
 /**
@@ -44,7 +52,7 @@ function unwrap({ data, error }) {
 
 const TABELA = 'participantes';
 // Colunas leves da listagem (sem foto nem dados_extra).
-const LIGHT = 'id,evento_id,nome,nomeCracha,email,telefone,turma,profissao,instrucao,tipo,grupoDiamante,convidadoPor,tamanhoCamisa,grupo,pessoa_token,recebeuCracha,credenciado,dataCredenciamento,temFoto,updated_at';
+const LIGHT = 'id,evento_id,nome,nomeCracha,email,telefone,turma,profissao,instrucao,tipo,grupoDiamante,convidadoPor,tamanhoCamisa,grupo,pessoa_token,recebeuCracha,credenciado,dataCredenciamento,temFoto,dados_extra,updated_at';
 // Colunas do detalhe (tudo exceto a foto, que é carregada à parte).
 const DETALHE = 'id,evento_id,nome,nomeCracha,email,telefone,documento,cidade,estado,turma,profissao,instrucao,nivel,faturamento,tamanhoCamisa,grupo,tipo,grupoDiamante,convidadoPor,convidadoPorId,observacoes,dataChegada,dataRetorno,dataCredenciamento,recebeuCracha,credenciado,pessoa_token,dados_extra,temFoto,criado_em,updated_at';
 
@@ -81,7 +89,7 @@ function normalize(p, { generateId = false } = {}) {
     convidadoPor: p.convidadoPor ? String(p.convidadoPor) : null,
     observacoes: p.observacoes == null ? '' : String(p.observacoes),
     foto: p.foto == null ? '' : String(p.foto),
-    pessoa_token: p.pessoa_token || tokenDe({ documento: p.documento, email: p.email, nome }),
+    pessoa_token: p.pessoa_token || tokenDe(grupoDe(p.evento_id), { documento: p.documento, email: p.email, nome }),
     dados_extra: p.dados_extra && typeof p.dados_extra === 'object' ? p.dados_extra : null,
   };
 }
