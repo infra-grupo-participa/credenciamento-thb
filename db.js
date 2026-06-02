@@ -10,6 +10,7 @@ function grupoDe(eventoId) {
   const e = String(eventoId || '');
   if (e.startsWith('clinica')) return 'clinica';
   if (e.startsWith('imersao')) return 'imersao';
+  if (e.startsWith('diamantes')) return 'diamantes';
   return e || 'geral';
 }
 // Token da pessoa POR GRUPO: o mesmo nos dois dias da Clínica, mas diferente entre
