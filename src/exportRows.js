@@ -17,6 +17,7 @@ export function linhasExport(list, origin) {
       'QR (link)': `${origin}/qr/${tok(p)}`,
       'Nome': p.nome,
       'Tipo': tipo(p.tipo),
+      'Grupo (Diamante)': pega(ex, 'Categoria') || (p.grupoDiamante || ''),
       'E-mail': p.email,
       'Telefone': p.telefone,
       'Documento': p.documento,
