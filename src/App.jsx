@@ -15,7 +15,8 @@ import { enfileirar, flushFila, tamanhoFila } from './offline.js';
 import { tipoLabel, tipoCls } from './tipos.js';
 import { linhasExport, aplicarQrImagem } from './exportRows.js';
 import {
-  IconImport, IconExport, IconPlus, IconSearch, IconCheck, IconSquare, IconEdit, IconLogout,
+  IconImport, IconExport, IconPlus, IconSearch, IconCheck, IconSquare, IconEdit, IconLogout, IconReset,
+  IconQr, IconMore, IconChart, IconSettings, IconClose,
 } from './icons.jsx';
 
 const POLL_MS = 5000;
@@ -71,10 +72,22 @@ function Credenciamento({ operador, onLogout }) {
   const [scanOpen, setScanOpen] = useState(false);
   const [dashOpen, setDashOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [maisOpen, setMaisOpen] = useState(false);
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
   const [pendentes, setPendentes] = useState(tamanhoFila());
   const fileRef = useRef(null);
   const searchRef = useRef(null);
+  const maisRef = useRef(null);
+
+  // Fecha o menu "Mais ações" ao clicar fora ou apertar Esc.
+  useEffect(() => {
+    if (!maisOpen) return;
+    function onDoc(e) { if (maisRef.current && !maisRef.current.contains(e.target)) setMaisOpen(false); }
+    function onEsc(e) { if (e.key === 'Escape') setMaisOpen(false); }
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onEsc);
+    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onEsc); };
+  }, [maisOpen]);
 
   useEffect(() => {
     function onKey(e) {
@@ -305,19 +318,53 @@ function Credenciamento({ operador, onLogout }) {
             </div>
           </div>
           <div className="header-actions">
-            {!readOnly && <button className="btn" onClick={() => setScanOpen(true)} title="Ler QR do crachá"><IconSearch /> Escanear</button>}
-            {!readOnly && <button className="btn ghost" onClick={abrirImport} title="Importar JSON"><IconImport /> Importar</button>}
-            <button className="btn ghost" onClick={() => setDashOpen(true)} title="Painel do evento">📊 Painel</button>
-            <button className="btn ghost" onClick={exportar} title="Exportar Excel (.xlsx) com dados + link/QR"><IconExport /> Exportar Excel</button>
-            {!readOnly && <button className="btn primary" onClick={() => { setNovoNome(''); setEditando(null); }}><IconPlus /> Novo participante</button>}
-            <button className="btn ghost" onClick={() => setSettingsOpen(true)} title="Configurações">⚙</button>
+            {!readOnly && (
+              <button className="btn primary" onClick={() => setScanOpen(true)} title="Ler QR do crachá">
+                <IconQr /> Escanear QR Code
+              </button>
+            )}
+            {!readOnly && (
+              <button className="btn" onClick={() => { setNovoNome(''); setEditando(null); }}>
+                <IconPlus /> Novo participante
+              </button>
+            )}
+
+            <div className="mais-wrap" ref={maisRef}>
+              <button className={`btn ghost ${maisOpen ? 'active' : ''}`} onClick={() => setMaisOpen((v) => !v)}
+                title="Mais ações" aria-haspopup="true" aria-expanded={maisOpen}>
+                <IconMore /> Mais ações
+              </button>
+              {maisOpen && (
+                <div className="mais-menu" role="menu">
+                  {!readOnly && (
+                    <button role="menuitem" onClick={() => { setMaisOpen(false); abrirImport(); }}>
+                      <IconImport /> Importar
+                    </button>
+                  )}
+                  <button role="menuitem" onClick={() => { setMaisOpen(false); exportar(); }}>
+                    <IconExport /> Exportar Excel
+                  </button>
+                  <button role="menuitem" onClick={() => { setMaisOpen(false); setDashOpen(true); }}>
+                    <IconChart /> Painel
+                  </button>
+                  <button role="menuitem" onClick={() => { setMaisOpen(false); setHistOpen(true); }}>
+                    <IconReset /> Histórico
+                  </button>
+                  <div className="mais-sep" />
+                  <button role="menuitem" onClick={() => { setMaisOpen(false); setSettingsOpen(true); }}>
+                    <IconSettings /> Configurações
+                  </button>
+                </div>
+              )}
+            </div>
+
             <span className="op-chip"><span className="who">{operador}</span>
               <button className="logout" title="Sair" onClick={onLogout}><IconLogout /></button></span>
           </div>
         </div>
       </header>
 
-      <EventBar eventos={eventos} eventoId={eventoId} onSelect={setEventoId} onOpenHistory={() => setHistOpen(true)} />
+      <EventBar eventos={eventos} eventoId={eventoId} onSelect={setEventoId} />
 
       {readOnly && (
         <div className="readonly-banner">
@@ -336,11 +383,38 @@ function Credenciamento({ operador, onLogout }) {
         </div>
       )}
 
-      <section className="stats">
-        <div className="stat"><div className="label">Total na lista</div><div className="value">{total}</div><div className="hint">{eventoAtual?.nome || '—'}</div></div>
-        <div className="stat ok"><div className="label">Credenciados</div><div className="value">{cred}</div><div className="progress"><div className="bar" style={{ width: `${pct}%` }} /></div></div>
-        <div className="stat warn"><div className="label">Pendentes</div><div className="value">{pend}</div><div className="hint">Ainda não chegaram</div></div>
-        <div className="stat acc"><div className="label">Progresso</div><div className="value">{pct}%</div><div className="hint">{cred} de {total}</div></div>
+      <section className="summary">
+        <div className="summary-card">
+          <div className="summary-head">
+            <div className="summary-title">
+              <span className="summary-evento">{eventoAtual?.nome || '—'}</span>
+              <span className={`sync-dot ${sync.k}`}><span className="dot" />{sync.t}</span>
+            </div>
+            <div className="summary-pct">{pct}<span>%</span></div>
+          </div>
+
+          <div className="summary-progress">
+            <div className="summary-bar"><div className="summary-fill" style={{ width: `${pct}%` }} /></div>
+            <div className="summary-progress-label">
+              <strong>{cred}</strong> de <strong>{total}</strong> credenciados
+            </div>
+          </div>
+
+          <div className="summary-metrics">
+            <div className="summary-metric">
+              <span className="sm-label">Total na lista</span>
+              <span className="sm-value">{total}</span>
+            </div>
+            <div className="summary-metric ok">
+              <span className="sm-label">Credenciados</span>
+              <span className="sm-value">{cred}</span>
+            </div>
+            <div className="summary-metric warn">
+              <span className="sm-label">Pendentes</span>
+              <span className="sm-value">{pend}</span>
+            </div>
+          </div>
+        </div>
       </section>
 
       <div className="toolbar">
@@ -353,21 +427,30 @@ function Credenciamento({ operador, onLogout }) {
                 if (!alvo.credenciado) credenciarMut.mutate({ id: alvo.id, credenciado: true, nome: alvo.nome });
               }
             }}
-            placeholder="Buscar por nome, e-mail, turma, telefone, quem convidou…  (atalho: / )" autoComplete="off" />
+            placeholder="Buscar por nome, e-mail, telefone, turma ou convidador…" autoComplete="off" />
+          {busca
+            ? <button className="search-clear" title="Limpar busca" onClick={() => { setBusca(''); searchRef.current?.focus(); }}><IconClose /></button>
+            : <kbd className="search-kbd">/</kbd>}
         </div>
+
         <div className="filter">
-          {[['todos', 'Todos'], ['pendentes', 'Pendentes'], ['credenciados', 'Credenciados']].map(([f, label]) => (
-            <button key={f} className={filtro === f ? 'active' : ''} onClick={() => setFiltro(f)}>{label}</button>
+          {[['todos', 'Todos', total], ['pendentes', 'Pendentes', pend], ['credenciados', 'Credenciados', cred]].map(([f, label, n]) => (
+            <button key={f} className={filtro === f ? 'active' : ''} onClick={() => setFiltro(f)}>
+              {label}<span className="filter-count">{n}</span>
+            </button>
           ))}
         </div>
-        <select className="btn" style={{ paddingRight: 28 }} value={tipoFiltro} onChange={(e) => setTipoFiltro(e.target.value)}>
+      </div>
+
+      <div className="toolbar-sub">
+        <select className="ctl" value={tipoFiltro} onChange={(e) => setTipoFiltro(e.target.value)}>
           <option value="todos">Tipo: Todos</option>
           <option value="comum">Comum</option>
           <option value="socio">Sócio</option>
           <option value="diamante">Diamante</option>
           <option value="convidado">Convidado</option>
         </select>
-        <select className="btn" style={{ paddingRight: 28 }} value={ordem} onChange={(e) => setOrdem(e.target.value)}>
+        <select className="ctl" value={ordem} onChange={(e) => setOrdem(e.target.value)}>
           <option value="nome">Ordenar: Nome (A→Z)</option>
           <option value="nome-desc">Nome (Z→A)</option>
           <option value="turma">Turma</option>
@@ -375,8 +458,8 @@ function Credenciamento({ operador, onLogout }) {
           <option value="credenciado-first">Credenciados primeiro</option>
           <option value="pendente-first">Pendentes primeiro</option>
         </select>
-        <button className={`btn ${filtrosOpen || filtros.length ? 'primary' : ''}`} onClick={() => setFiltrosOpen((v) => !v)}>
-          Filtros{filtros.length ? ` (${filtros.length})` : ''}
+        <button className={`ctl ${filtrosOpen || filtros.length ? 'on' : ''}`} onClick={() => setFiltrosOpen((v) => !v)}>
+          Filtros avançados{filtros.length ? ` (${filtros.length})` : ''}
         </button>
       </div>
 
@@ -410,23 +493,18 @@ function Credenciamento({ operador, onLogout }) {
 
       <main className="list-wrap">
         <div className="count-row">
-          <span>{filtrada.length} {filtrada.length === 1 ? 'participante' : 'participantes'}</span>
-          <span className={`sync-dot ${sync.k}`}><span className="dot" />{sync.t}</span>
+          <span>{filtrada.length} {filtrada.length === 1 ? 'participante' : 'participantes'}{filtro !== 'todos' ? ` · ${filtro}` : ''}</span>
         </div>
         <div className="table-wrap">
           <div className="table-scroll">
             <table className="tbl">
               <thead>
                 <tr>
-                  <th style={{ width: 170 }}>Status</th>
+                  <th style={{ width: 150 }}>Status</th>
                   <th>Participante</th>
-                  <th className="hide-sm">Tipo</th>
-                  <th className="hide-sm">Turma</th>
-                  <th className="hide-sm">Camisa</th>
-                  <th className="hide-sm">Grupo</th>
-                  <th className="hide-sm">Instrução</th>
-                  <th className="hide-sm">Contato</th>
-                  <th style={{ textAlign: 'right' }}>Ações</th>
+                  <th className="hide-sm" style={{ width: 160 }}>Tipo / Categoria</th>
+                  <th className="hide-sm">Informações</th>
+                  <th style={{ textAlign: 'right', width: 92 }}>Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -485,6 +563,9 @@ function Credenciamento({ operador, onLogout }) {
 
 function Linha({ p, readOnly, onToggle, onEdit, onDetail }) {
   const telClean = (p.telefone || '').replace(/\D/g, '');
+  const grupoSim = p.grupo && /^sim/i.test(String(p.grupo).trim());
+  const grupoNao = p.grupo && /^n[ãa]o/i.test(String(p.grupo).trim());
+  const temInfo = p.turma || p.tamanhoCamisa || p.grupo || p.instrucao;
   return (
     <tr className={p.credenciado ? 'credenciado' : ''}>
       <td>
@@ -499,9 +580,15 @@ function Linha({ p, readOnly, onToggle, onEdit, onDetail }) {
             <div className="name">
               <button type="button" className="name-btn" onClick={onDetail}>{p.nome || '—'}</button>
             </div>
-            <div className="name-sub">
-              {p.nomeCracha || ''}{p.profissao ? ` · ${p.profissao}` : ''}
-              {p.convidadoPor ? ` · convidado por ${p.convidadoPor}` : ''}
+            {(p.nomeCracha || p.profissao || p.convidadoPor) && (
+              <div className="name-sub">
+                {[p.nomeCracha, p.profissao, p.convidadoPor ? `convidado por ${p.convidadoPor}` : '']
+                  .filter(Boolean).join(' · ')}
+              </div>
+            )}
+            <div className="name-contact">
+              {p.telefone && <a href={`https://wa.me/${telClean}`} target="_blank" rel="noopener noreferrer">{p.telefone}</a>}
+              {p.email && <span className="nc-mail">{p.email}</span>}
             </div>
             <div className="name-tags">
               <span className={`tbadge tbadge-${tipoCls(p.tipo)}`}>{tipoLabel(p.tipo)}</span>
@@ -516,15 +603,15 @@ function Linha({ p, readOnly, onToggle, onEdit, onDetail }) {
         <span className={`tbadge tbadge-${tipoCls(p.tipo)}`}>{tipoLabel(p.tipo)}</span>
         {p.grupoDiamante && <div className="grupo-dia">{p.grupoDiamante}</div>}
       </td>
-      <td className="hide-sm">{p.turma ? <span className="badge turma">{p.turma}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}</td>
-      <td className="hide-sm">{p.tamanhoCamisa ? <span className="badge size">{p.tamanhoCamisa}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}</td>
-      <td className="hide-sm">{grupoBadge(p.grupo)}</td>
-      <td className="hide-sm">{p.instrucao ? <span className="badge inst">{p.instrucao}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}</td>
       <td className="hide-sm">
-        <div className="contact">
-          {p.telefone ? <a href={`https://wa.me/${telClean}`} target="_blank" rel="noopener noreferrer">{p.telefone}</a> : <small>sem telefone</small>}
-          {p.email && <small>{p.email}</small>}
-        </div>
+        {temInfo ? (
+          <div className="info-cell">
+            {p.turma && <span className="badge turma">{p.turma}</span>}
+            {p.tamanhoCamisa && <span className="badge size" title="Tamanho da camisa">{p.tamanhoCamisa}</span>}
+            {p.grupo && <span className={`gbadge ${grupoSim ? 'gsim' : grupoNao ? 'gnao' : ''}`} title="Grupo">{grupoSim ? 'No grupo' : grupoNao ? 'Fora do grupo' : String(p.grupo)}</span>}
+            {p.instrucao && <span className="badge inst">{p.instrucao}</span>}
+          </div>
+        ) : <span className="info-empty">—</span>}
       </td>
       <td>
         <div className="actions-cell">
