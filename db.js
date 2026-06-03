@@ -8,9 +8,10 @@ let client = null;
 // Grupo do evento: a Clínica (D1/D2) compartilha o token; a Imersão tem o seu.
 function grupoDe(eventoId) {
   const e = String(eventoId || '');
-  if (e.startsWith('clinica')) return 'clinica';
-  if (e.startsWith('imersao')) return 'imersao';
-  if (e.startsWith('diamantes')) return 'diamantes';
+  // Dias do mesmo evento compartilham o QR: "base-d1", "base-d2"... -> "base".
+  // (cobre clinica-d1/d2, diamantes-d1/d2 e qualquer evento de vários dias criado na tela)
+  const m = e.match(/^(.+)-d\d+$/);
+  if (m) return m[1];
   return e || 'geral';
 }
 // Token da pessoa POR GRUPO: o mesmo nos dois dias da Clínica, mas diferente entre

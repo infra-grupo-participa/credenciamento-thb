@@ -37,7 +37,7 @@ export default function SettingsModal({ eventos, onClose }) {
 }
 
 function AbaEventos({ eventos, qc, toast }) {
-  const [novo, setNovo] = useState({ nome: '', tipo: 'clinica', data: '', ordem: '' });
+  const [novo, setNovo] = useState({ nome: '', tipo: 'clinica', data: '', ordem: '', dias: 1 });
   const [salvando, setSalvando] = useState('');
 
   async function salvar(ev, campos) {
@@ -47,13 +47,27 @@ function AbaEventos({ eventos, qc, toast }) {
     finally { setSalvando(''); }
   }
   async function criar() {
-    if (!novo.nome.trim()) { toast('Informe o nome do evento', 'danger'); return; }
+    const nome = novo.nome.trim();
+    if (!nome) { toast('Informe o nome do evento', 'danger'); return; }
+    const dias = Math.max(1, Math.min(10, Number(novo.dias) || 1));
+    const ord0 = Number(novo.ordem) || eventos.length;
     setSalvando('novo');
     try {
-      await api.criarEvento({ ...novo, ordem: Number(novo.ordem) || (eventos.length) });
+      if (dias === 1) {
+        await api.criarEvento({ nome, tipo: novo.tipo, data: novo.data, ordem: ord0 });
+      } else {
+        // Vários dias = mesmo QR nos dias: ids "base-d1..base-dN" (o grupo do QR é a "base").
+        const slug = nome.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30);
+        const base = `${slug}-${Math.random().toString(36).slice(2, 6)}`;
+        for (let i = 1; i <= dias; i++) {
+          let data = novo.data || '';
+          if (data) { const d = new Date(`${data}T00:00:00`); d.setDate(d.getDate() + (i - 1)); data = d.toISOString().slice(0, 10); }
+          await api.criarEvento({ id: `${base}-d${i}`, nome: `${nome} — Dia ${i}`, tipo: novo.tipo, data, ordem: ord0 + (i - 1) });
+        }
+      }
       await qc.invalidateQueries({ queryKey: ['eventos'] });
-      setNovo({ nome: '', tipo: 'clinica', data: '', ordem: '' });
-      toast('Evento criado', 'success');
+      setNovo({ nome: '', tipo: 'clinica', data: '', ordem: '', dias: 1 });
+      toast(dias > 1 ? `Evento de ${dias} dias criado (mesmo QR nos dias)` : 'Evento criado', 'success');
     } catch { toast('Erro ao criar evento', 'danger'); }
     finally { setSalvando(''); }
   }
@@ -63,16 +77,20 @@ function AbaEventos({ eventos, qc, toast }) {
       {eventos.sort((a, b) => a.ordem - b.ordem).map((e) => <LinhaEvento key={e.id} ev={e} onSalvar={salvar} salvando={salvando === e.id} />)}
       <div className="detail-section">Novo evento</div>
       <div className="ev-form">
-        <input placeholder="Nome (ex: Clínica — Dia 3)" value={novo.nome} onChange={(ev) => setNovo({ ...novo, nome: ev.target.value })} />
+        <input placeholder="Nome (ex: Encontro de Diamantes)" value={novo.nome} onChange={(ev) => setNovo({ ...novo, nome: ev.target.value })} />
         <select value={novo.tipo} onChange={(ev) => setNovo({ ...novo, tipo: ev.target.value })}>
           <option value="imersao">Imersão</option>
           <option value="clinica">Clínica</option>
           <option value="passado">Passado</option>
         </select>
-        <input type="date" value={novo.data} onChange={(ev) => setNovo({ ...novo, data: ev.target.value })} />
+        <input type="date" value={novo.data} onChange={(ev) => setNovo({ ...novo, data: ev.target.value })} title="Data (1º dia)" />
+        <select value={novo.dias} onChange={(ev) => setNovo({ ...novo, dias: Number(ev.target.value) })} title="Quantos dias">
+          {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n} dia{n > 1 ? 's' : ''}</option>)}
+        </select>
         <input style={{ width: 70 }} placeholder="ordem" value={novo.ordem} onChange={(ev) => setNovo({ ...novo, ordem: ev.target.value })} />
         <button className="btn primary" onClick={criar} disabled={salvando === 'novo'}>Criar</button>
       </div>
+      <p className="cfg-title">Com 2+ dias, cada dia é criado separado (check-in por dia) e a data avança automaticamente — o <b>mesmo QR de cada pessoa vale em todos os dias</b>.</p>
     </div>
   );
 }
