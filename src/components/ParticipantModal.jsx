@@ -5,9 +5,9 @@ import { useToast } from './Toasts.jsx';
 import { IconClose } from '../icons.jsx';
 
 const VAZIO = {
-  nome: '', nomeCracha: '', email: '', telefone: '', turma: '', profissao: '',
+  nome: '', nomeCracha: '', email: '', telefone: '', documento: '', turma: '', profissao: '',
   tamanhoCamisa: '', dataChegada: '', dataRetorno: '', instrucao: '', observacoes: '',
-  tipo: 'comum', convidadoPor: '',
+  tipo: 'comum', convidadoPor: '', cidade: '', estado: '', nivel: '', grupo: '', grupoDiamante: '',
 };
 
 export default function ParticipantModal({ participant, eventoId, nomeInicial = '', onClose }) {
@@ -135,7 +135,24 @@ export default function ParticipantModal({ participant, eventoId, nomeInicial = 
                 </select>
               </div>
             </div>
-            <div className="field"><label>Instrução / nível</label><input value={form.instrucao} onChange={set('instrucao')} placeholder="THB, AURUM, PLATINA…" /></div>
+            <div className="field-row">
+              <div className="field"><label>Documento (CPF/CNPJ)</label><input value={form.documento || ''} onChange={set('documento')} /></div>
+              <div className="field">
+                <label>No grupo</label>
+                <select value={form.grupo || ''} onChange={set('grupo')}>
+                  <option value=""></option><option value="Sim">Sim</option><option value="Não">Não</option>
+                </select>
+              </div>
+            </div>
+            <div className="field-row">
+              <div className="field"><label>Cidade</label><input value={form.cidade || ''} onChange={set('cidade')} /></div>
+              <div className="field"><label>Estado (UF)</label><input value={form.estado || ''} onChange={set('estado')} placeholder="Ex: RS" /></div>
+            </div>
+            <div className="field-row">
+              <div className="field"><label>Instrução</label><input value={form.instrucao} onChange={set('instrucao')} placeholder="THB, AURUM, PLATINA…" /></div>
+              <div className="field"><label>Nível</label><input value={form.nivel || ''} onChange={set('nivel')} placeholder="Ex: NÍVEL OURO" /></div>
+            </div>
+            <div className="field"><label>Grupo (Diamante / categoria)</label><input value={form.grupoDiamante || ''} onChange={set('grupoDiamante')} placeholder="Ex: Diamante Vermelho, Sócio…" /></div>
             <div className="field">
               <label>Foto do participante</label>
               <div className="photo-preview-wrap">
