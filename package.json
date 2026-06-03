@@ -1,7 +1,7 @@
 {
   "name": "credenciamento-chf2026",
   "version": "2.0.0",
-  "description": "Sistema de credenciamento CHF 2026 Goiânia — React + Express + MySQL (Hostinger)",
+  "description": "Sistema de credenciamento THB (multi-evento) — React + Express + Supabase (Hostinger)",
   "main": "server.js",
   "type": "commonjs",
   "scripts": {

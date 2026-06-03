@@ -1,35 +1,40 @@
-# Credenciamento CHF 2026 — React + Express + MySQL (Hostinger)
+# Credenciamento THB — React + Express + Supabase (Hostinger)
 
-App de credenciamento para o evento, reescrito numa stack moderna e robusta,
-pronto para rodar como **Node.js App** no Hostinger Cloud Professional.
+App de credenciamento **multi-evento** (Imersão, Clínica, Encontro de Diamantes…),
+com leitura de QR, busca manual, modo offline e operação por vários atendentes ao
+mesmo tempo. Roda como **Node.js App** no Hostinger Cloud Professional.
+
+> Visão técnica completa (modelo de dados, regra do QR, fluxo de auth, mapa de
+> arquivos): veja **[ARQUITETURA.md](ARQUITETURA.md)**.
 
 ## Stack
 
-- **Front-end:** React 18 + Vite + TanStack React Query (cache e sincronização)
-- **Back-end:** Node.js + Express (API REST)
-- **Banco:** MySQL da Hostinger (via `mysql2`)
-- O Express serve a API em `/api` **e** o front já compilado (pasta `dist/`).
+- **Front-end:** React 18 + Vite + TanStack React Query (cache, sync e offline).
+  PWA (`vite-plugin-pwa`).
+- **Back-end:** Node.js + Express (API REST em `/api`), que também serve o front
+  compilado (`dist/`).
+- **Banco:** **Supabase (PostgreSQL)** via `@supabase/supabase-js`. RLS ligado; o
+  servidor usa a chave **service_role**.
+- O `dist/` é **versionado no git** (a Hostinger não leva o build para o runtime).
 
-## Por que é mais robusto que a versão anterior
+## Por que é robusto
 
-- **Sem sobrescrita entre estações:** cada ação (credenciar, editar, excluir) é
-  uma operação individual no banco. Dois atendentes ao mesmo tempo não apagam o
-  trabalho um do outro (antes salvava a lista inteira a cada clique).
-- **Login por operador:** cada pessoa entra com o próprio nome + senha do evento.
-- **Auditoria:** toda ação fica registrada (quem, o quê, quando) na tabela `auditoria`.
-- **Fotos sob demanda:** a listagem é leve; a foto só é carregada ao abrir o cadastro/visualização.
-- **Credenciamento instantâneo:** atualização otimista na tela + sincronização a cada 5s.
+- **Sem sobrescrita entre estações:** cada ação (credenciar, editar, excluir) é uma
+  operação individual no banco — dois atendentes ao mesmo tempo não se atrapalham.
+- **Offline:** se a conexão cair, o credenciamento continua e entra numa fila local
+  que **sincroniza sozinha ao reconectar**.
+- **Login por operador** + **senha do evento**; **auditoria** de todas as ações.
+- **Fotos sob demanda:** a listagem é leve; a foto carrega só ao abrir o cadastro.
 
 ## Estrutura
 
 ```
-server.js          # Express: API REST + serve o front (dist/)
-db.js              # Conexão MySQL, criação das tabelas e seed inicial
-data.json          # Dados iniciais (importados 1x, quando o banco está vazio)
-index.html         # Entrada do Vite
-src/               # Código React (App, componentes, api.js, estilos)
-.env.example       # Modelo das variáveis de ambiente
-dist/              # Build do front (gerado por "npm run build")
+server.js          # Express: API /api + /qr/:token + /qrimg/:token + serve dist/
+db.js              # Camada Supabase: grupoDe/tokenDe, repo (CRUD), auditoria
+src/               # React (App, componentes, api.js, exportRows.js, offline.js)
+dist/              # Build do front (versionado; servido em produção)
+dados-uteis/       # Importador dev (xlsx) — uso pontual, fora do runtime
+ARQUITETURA.md     # Visão geral da arquitetura
 ```
 
 ---
@@ -37,60 +42,56 @@ dist/              # Build do front (gerado por "npm run build")
 ## Deploy no Hostinger (Node.js App)
 
 ### 1. Suba o código para o GitHub
-Crie um repositório e faça push deste projeto (o `.gitignore` já evita subir
-`node_modules` e `dist`).
+`node_modules` é ignorado; **`dist/` é versionado** (necessário no runtime).
 
-### 2. Crie o banco MySQL no hPanel
-**Bancos de dados → Bancos de dados MySQL** → crie banco + usuário e **anote**
-nome do banco, usuário, senha e host (geralmente `localhost`).
+### 2. Crie o projeto no Supabase
+Em [supabase.com](https://supabase.com), crie o projeto e pegue em
+**Project Settings → API**: a **Project URL** e a chave **`service_role`**.
 
 ### 3. Crie a Node.js App
 No hPanel: **Sites → Adicionar site → Node.js Apps**.
-- **Importe o repositório Git** (ou suba um ZIP).
-- **Versão do Node:** 20 ou 22.
-- **Comando de build:** `npm run build`
-- **Arquivo de entrada / start:** `server.js` (start = `npm start`).
+- Importe o repositório Git.
+- **Node:** 20 ou 22 · **Build:** `npm run build` · **Start:** `npm start` (`server.js`).
 
-### 4. Configure as variáveis de ambiente
-No painel da app, em **Environment Variables**, defina:
+### 4. Variáveis de ambiente
+No painel da app, em **Environment Variables**:
 
-| Variável          | Valor                                            |
-|-------------------|--------------------------------------------------|
-| `DB_HOST`         | `localhost` (ou o host informado pela Hostinger) |
-| `DB_PORT`         | `3306`                                           |
-| `DB_NAME`         | nome do banco                                    |
-| `DB_USER`         | usuário do banco                                 |
-| `DB_PASS`         | senha do banco                                   |
-| `ACCESS_PASSWORD` | senha que os operadores usam para entrar         |
-| `SESSION_SECRET`  | uma string longa e aleatória                     |
+| Variável                    | Valor                                              |
+|-----------------------------|----------------------------------------------------|
+| `SUPABASE_URL`              | a **Project URL** do Supabase                      |
+| `SUPABASE_SERVICE_ROLE_KEY` | a chave **service_role** (secreta, só no servidor) |
+| `ACCESS_PASSWORD`           | senha que os operadores usam para entrar           |
+| `SESSION_SECRET`            | uma string longa e aleatória                       |
 
-> Dica: o **Assistente de Conexão de Banco** da Hostinger preenche as variáveis
-> `DB_*` automaticamente. **Não** defina `PORT` — a Hostinger injeta sozinha.
+> **Não** defina `PORT` — a Hostinger injeta sozinha. A senha do evento também pode
+> ser trocada depois pela tela (⚙ **Configurações → Senha**), que tem prioridade.
 
-### 5. Faça o deploy
-A Hostinger instala as dependências, roda o build e inicia o `server.js`.
-Na primeira execução, as tabelas são criadas e o `data.json` é importado.
-Acesse o domínio → tela de login → entre com seu nome + a `ACCESS_PASSWORD`.
-
-A cada novo `git push`, a Hostinger redeploya automaticamente.
+### 5. Deploy
+A Hostinger instala dependências, roda o build e inicia o `server.js`. Acesse o
+domínio → login (nome do operador + senha). A cada `git push`, redeploy automático.
 
 ---
 
-## Rodar localmente (desenvolvimento)
+## Rodar localmente
 
 ```bash
-cp .env.example .env      # preencha com um MySQL local
+cp .env.example .env      # preencha SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY
 npm install
-npm run dev               # sobe API (3000) + Vite (5173, com proxy /api)
+npm run dev               # API (3000) + Vite (5173, proxy /api)
 ```
-Acesse http://localhost:5173.
-
-Para testar igual produção (front compilado servido pelo Express):
+Acesse http://localhost:5173. Para testar como em produção:
 ```bash
-npm run build
-npm start                 # tudo em http://localhost:3000
+npm run build && npm start   # tudo em http://localhost:3000
 ```
+
+## Operação pela equipe (sem dev)
+
+Pela tela: criar/editar/arquivar **eventos** (inclusive **vários dias com o mesmo
+QR**), adicionar/editar/excluir **pessoas** (todos os campos + foto), **importar**
+listas (CSV/Excel), gerenciar **operadores** e **senha**, **credenciar** (QR, busca
+por nome/CPF, manual, desfazer), ver **painel** e **exportar** (Excel com o QR como
+imagem). Detalhes em [ARQUITETURA.md](ARQUITETURA.md).
 
 ## Backup
-- Botão **Exportar** gera um `.json` com tudo (inclui fotos). Faça ao fim do evento.
-- O Cloud Professional também faz **backup diário automático** do banco.
+- **Exportar** (Excel/CSV) ao fim de cada evento.
+- O Supabase mantém backups do banco no plano do projeto.
