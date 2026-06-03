@@ -14,17 +14,40 @@ const STATUS = {
   erro: { cls: 'err', txt: 'QR não reconhecido' },
 };
 
-// Scanner em modo quiosque: leitura contínua de QR com confirmação visual grande.
-export default function ScannerModal({ onDetected, onClose, eventoNome }) {
+const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+// Scanner em modo quiosque: leitura contínua de QR + busca manual rápida (nome/CPF).
+export default function ScannerModal({ onDetected, onManual, lista = [], onClose, eventoNome }) {
   const videoRef = useRef(null);
   const rafRef = useRef(0);
   const last = useRef(null);
   const busy = useRef(false);
+  const buscaRef = useRef(null);
   const [erro, setErro] = useState('');
   const [res, setRes] = useState(null);
+  const [q, setQ] = useState('');
   // Mantém o callback mais recente sem re-rodar o efeito da câmera (evita o flicker).
   const cbRef = useRef(onDetected);
   useEffect(() => { cbRef.current = onDetected; }, [onDetected]);
+
+  // QR não reconhecido -> foca a busca manual para agilizar.
+  useEffect(() => { if (res && res.naoReconhecido && buscaRef.current) buscaRef.current.focus(); }, [res]);
+
+  const qq = q.trim();
+  const qd = qq.replace(/\D/g, '');
+  const matches = qq.length < 2 ? [] : (lista || []).filter((p) => {
+    if (qd && (String(p.documento || '').replace(/\D/g, '').includes(qd) || String(p.telefone || '').replace(/\D/g, '').includes(qd))) return true;
+    return norm(p.nome).includes(norm(qq)) || norm(p.email).includes(norm(qq));
+  }).slice(0, 8);
+
+  async function credManual(p) {
+    if (busy.current || !onManual) return;
+    busy.current = true;
+    last.current = p.pessoa_token || p.id; // evita a câmera re-processar logo em seguida
+    try { setRes(await onManual(p)); } catch { setRes({ status: 'erro', nome: 'Erro ao credenciar' }); }
+    setQ('');
+    setTimeout(() => { busy.current = false; }, 1000);
+  }
 
   useEffect(() => {
     let stream;
@@ -94,6 +117,24 @@ export default function ScannerModal({ onDetected, onClose, eventoNome }) {
               </div>
             </div>
           )}
+          <div className="scan-manual">
+            <input ref={buscaRef} className="input scan-manual-input" value={q} onChange={(e) => setQ(e.target.value)}
+              placeholder="Não leu o QR? Buscar por nome ou CPF…" autoComplete="off" />
+            {matches.length > 0 && (
+              <div className="scan-manual-list">
+                {matches.map((p) => (
+                  <button key={p.id} type="button" className="scan-manual-item" onClick={() => credManual(p)}>
+                    <span className="smi-nome">{p.nome}</span>
+                    <span className="smi-meta">
+                      <span className={`tbadge tbadge-${tipoCls(p.tipo)}`}>{tipoLabel(p.tipo)}</span>
+                      {p.credenciado && <span className="smi-cred">já ✓</span>}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {qq.length >= 2 && matches.length === 0 && <div className="scan-manual-empty">Ninguém encontrado nesta lista.</div>}
+          </div>
         </div>
         <div className="modal-foot">
           <button type="button" className="btn primary" onClick={onClose}>Fechar</button>

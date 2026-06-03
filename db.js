@@ -53,7 +53,7 @@ function unwrap({ data, error }) {
 
 const TABELA = 'participantes';
 // Colunas leves da listagem (sem foto nem dados_extra).
-const LIGHT = 'id,evento_id,nome,nomeCracha,email,telefone,turma,profissao,instrucao,tipo,grupoDiamante,convidadoPor,tamanhoCamisa,grupo,pessoa_token,recebeuCracha,credenciado,dataCredenciamento,temFoto,dados_extra,updated_at';
+const LIGHT = 'id,evento_id,nome,nomeCracha,email,telefone,documento,turma,profissao,instrucao,tipo,grupoDiamante,convidadoPor,tamanhoCamisa,grupo,pessoa_token,recebeuCracha,credenciado,dataCredenciamento,temFoto,dados_extra,updated_at';
 // Colunas do detalhe (tudo exceto a foto, que é carregada à parte).
 const DETALHE = 'id,evento_id,nome,nomeCracha,email,telefone,documento,cidade,estado,turma,profissao,instrucao,nivel,faturamento,tamanhoCamisa,grupo,tipo,grupoDiamante,convidadoPor,convidadoPorId,observacoes,dataChegada,dataRetorno,dataCredenciamento,recebeuCracha,credenciado,pessoa_token,dados_extra,temFoto,criado_em,updated_at';
 

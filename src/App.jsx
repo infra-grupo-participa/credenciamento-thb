@@ -259,21 +259,8 @@ function Credenciamento({ operador, onLogout }) {
 
   // Leitura de QR -> credencia pelo id embutido (em qualquer evento).
   // Recebe o conteúdo do QR (token, id, ou link /qr/<token>) e resolve no dia ativo.
-  async function aoEscanear(raw) {
-    let code = String(raw || '').trim();
-    const m = code.match(/\/qr\/([^/?#]+)/);
-    if (m) code = decodeURIComponent(m[1]); // QR que codifica o link inteiro
-    const r = await api.resolver(eventoId, code);
-    if (r.status !== 200) {
-      beepErr();
-      if (r.status === 409) {
-        const onde = (r.eventos || []).map((id) => (eventos.find((e) => e.id === id) || {}).nome || id).join(', ');
-        return { status: 'erro', nome: r.nome || 'Pessoa de outro evento', sub: `Pertence a: ${onde}. Selecione o dia correto.` };
-      }
-      if (r.status === 0) return { status: 'erro', nome: 'Sem conexão' };
-      return { status: 'erro', nome: 'QR não cadastrado neste sistema' };
-    }
-    const det = r;
+  // Credencia uma pessoa (objeto da lista ou do resolver) e devolve o cartão de resultado.
+  async function credenciarPessoa(det) {
     try {
       const foto = det.temFoto ? await api.getFoto(det.id).then((x) => x.foto || '').catch(() => '') : '';
       const ex = det.dados_extra && typeof det.dados_extra === 'object' ? det.dados_extra : {};
@@ -287,6 +274,23 @@ function Credenciamento({ operador, onLogout }) {
       qc.invalidateQueries({ queryKey: ['eventos'] });
       return { status: 'ok', ...info };
     } catch { beepErr(); return { status: 'erro', nome: 'Erro ao credenciar' }; }
+  }
+
+  async function aoEscanear(raw) {
+    let code = String(raw || '').trim();
+    const m = code.match(/\/qr\/([^/?#]+)/);
+    if (m) code = decodeURIComponent(m[1]); // QR que codifica o link inteiro
+    const r = await api.resolver(eventoId, code);
+    if (r.status !== 200) {
+      beepErr();
+      if (r.status === 409) {
+        const onde = (r.eventos || []).map((id) => (eventos.find((e) => e.id === id) || {}).nome || id).join(', ');
+        return { status: 'erro', nome: r.nome || 'Pessoa de outro evento', sub: `Pertence a: ${onde}. Selecione o dia correto.` };
+      }
+      if (r.status === 0) return { status: 'erro', nome: 'Sem conexão' };
+      return { status: 'erro', nome: 'QR não reconhecido', sub: 'Use a busca abaixo (nome ou CPF) para credenciar.', naoReconhecido: true };
+    }
+    return credenciarPessoa(r);
   }
 
   return (
@@ -472,7 +476,7 @@ function Credenciamento({ operador, onLogout }) {
         <HistoryModal eventos={eventos} onClose={() => setHistOpen(false)}
           onOpen={(id) => { setEventoId(id); setHistOpen(false); }} />
       )}
-      {scanOpen && <ScannerModal onDetected={aoEscanear} eventoNome={eventoAtual?.nome || ''} onClose={() => setScanOpen(false)} />}
+      {scanOpen && <ScannerModal onDetected={aoEscanear} onManual={credenciarPessoa} lista={lista} eventoNome={eventoAtual?.nome || ''} onClose={() => setScanOpen(false)} />}
       {dashOpen && <DashboardModal eventoId={eventoId} eventoNome={eventoAtual?.nome || ''} lista={lista} onClose={() => setDashOpen(false)} />}
       {settingsOpen && <SettingsModal eventos={eventos} onClose={() => setSettingsOpen(false)} />}
     </>

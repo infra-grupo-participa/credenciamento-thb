@@ -281,6 +281,16 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 .scan-status.ok{color:var(--success)} .scan-status.dup{color:var(--warning)} .scan-status.err{color:var(--danger)}
 .scan-sub{font-size:13px;color:var(--muted);max-width:260px;font-weight:600}
 @media (max-width:640px){.scan-grid{grid-template-columns:1fr}.scan-result{min-height:200px}}
+/* Busca manual rápida dentro do scanner (quando o QR não é reconhecido) */
+.scan-manual{margin-top:14px}
+.scan-manual-input{width:100%;font-size:16px;padding:12px 14px}
+.scan-manual-list{margin-top:8px;display:flex;flex-direction:column;gap:6px;max-height:230px;overflow:auto}
+.scan-manual-item{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;padding:11px 13px;border:1px solid var(--line);border-radius:11px;background:#fff;cursor:pointer}
+.scan-manual-item:hover{background:var(--bg);border-color:var(--accent,#ef7c00)}
+.scan-manual-item .smi-nome{font-weight:600}
+.scan-manual-item .smi-meta{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.smi-cred{font-size:12px;color:#1f9d57;font-weight:700}
+.scan-manual-empty{margin-top:8px;color:var(--muted);font-size:13px}
 
 /* QR no detalhe */
 .qr-row{display:flex;gap:14px;align-items:center;background:#f7f8fa;border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:14px}
