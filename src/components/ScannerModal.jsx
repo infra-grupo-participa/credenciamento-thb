@@ -18,7 +18,9 @@ const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-
 
 // Tempo que o cartão de OK/duplicado fica na tela antes de voltar para "pronto".
 // (Se a próxima pessoa for lida antes disso, o card troca na hora — não atrasa a fila.)
-const AUTO_DISMISS_MS = 2200;
+// No celular o card cobre a câmera, então damos um tempo confortável de leitura
+// e também dá para tocar no card para continuar antes disso.
+const AUTO_DISMISS_MS = 2600;
 // Cooldown entre uma pessoa e a próxima. Curto para a fila andar rápido; a proteção
 // contra ler o MESMO QR duas vezes vem da dedup-por-presença (GAP_MS), não daqui.
 const BUSY_LOCK_MS = 550;
@@ -155,7 +157,9 @@ export default function ScannerModal({ onDetected, onManual, lista = [], onClose
                   <span className="dot" />{pronto ? 'Pronto — aponte o próximo QR' : 'Lendo…'}
                 </div>
               </div>
-              <div className={`scan-result ${res ? st.cls : 'idle'}`}>
+              <div className={`scan-result ${res ? st.cls : 'idle'}`}
+                onClick={() => { if (res) { clearTimeout(dismissRef.current); setRes(null); } }}
+                role={res ? 'button' : undefined}>
                 {!res && (
                   <div className="scan-hint">
                     <div className="scan-hint-big">Leitura contínua ativa</div>
@@ -178,6 +182,7 @@ export default function ScannerModal({ onDetected, onManual, lista = [], onClose
                     )}
                     <div className={`scan-status ${st.cls}`}>{st.txt}</div>
                     {res.sub && <div className="scan-sub">{res.sub}</div>}
+                    <div className="scan-tap-hint">toque para continuar</div>
                   </>
                 )}
               </div>

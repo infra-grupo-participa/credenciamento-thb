@@ -347,7 +347,22 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 .scan-status{font-size:15px;font-weight:800}
 .scan-status.ok{color:var(--success)} .scan-status.dup{color:var(--warning)} .scan-status.err{color:var(--danger)}
 .scan-sub{font-size:13px;color:var(--muted);max-width:260px;font-weight:600}
-@media (max-width:640px){.scan-grid{grid-template-columns:1fr}.scan-result{min-height:200px}}
+.scan-tap-hint{display:none}
+@media (max-width:640px){
+  .scan-grid{grid-template-columns:1fr;position:relative}
+  /* No celular o card da pessoa vira OVERLAY sobre a câmera — aparece bem na frente
+     do operador (antes ficava embaixo, fora da área visível). Some sozinho ou ao tocar. */
+  .scan-result{position:absolute;top:0;left:0;right:0;z-index:6;margin:0;min-height:0;
+    padding:16px 16px;border-radius:14px;box-shadow:var(--shadow-pop);gap:8px}
+  .scan-result.idle{display:none}
+  .scan-result.ok{background:#e9f7ef;border-color:rgba(31,157,87,.55)}
+  .scan-result.dup{background:#fdf1de;border-color:rgba(245,158,11,.6)}
+  .scan-result.err{background:#fdeaea;border-color:rgba(226,59,59,.5)}
+  .scan-foto{width:72px;height:72px}
+  .scan-foto-ph{font-size:30px}
+  .scan-nome{font-size:20px}
+  .scan-tap-hint{display:block;margin-top:2px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+}
 /* Busca manual rápida dentro do scanner (quando o QR não é reconhecido) */
 .scan-manual{margin-top:14px}
 .scan-manual-input{width:100%;font-size:16px;padding:12px 14px}
