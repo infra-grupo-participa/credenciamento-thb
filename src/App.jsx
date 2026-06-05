@@ -273,20 +273,39 @@ function Credenciamento({ operador, onLogout }) {
   // Leitura de QR -> credencia pelo id embutido (em qualquer evento).
   // Recebe o conteúdo do QR (token, id, ou link /qr/<token>) e resolve no dia ativo.
   // Credencia uma pessoa (objeto da lista ou do resolver) e devolve o cartão de resultado.
-  async function credenciarPessoa(det) {
-    try {
-      const foto = det.temFoto ? await api.getFoto(det.id).then((x) => x.foto || '').catch(() => '') : '';
-      const ex = det.dados_extra && typeof det.dados_extra === 'object' ? det.dados_extra : {};
-      const grupo = det.grupo || ex['Entrou no grupo?'] || ex['Está no grupo?'] || ex['Está no grupo da Imersão?'] || '';
-      const info = { nome: det.nome, tipo: det.tipo, turma: det.turma, camisa: det.tamanhoCamisa, grupo, foto };
-      if (det.credenciado) { beepOk(); return { status: 'duplicado', ...info }; }
-      await api.credenciar(det.id, true);
-      beepOk();
-      qc.invalidateQueries({ queryKey: ['participantes', det.evento_id] });
-      qc.invalidateQueries({ queryKey: ['participantes', eventoId] });
-      qc.invalidateQueries({ queryKey: ['eventos'] });
-      return { status: 'ok', ...info };
-    } catch { beepErr(); return { status: 'erro', nome: 'Erro ao credenciar' }; }
+  //
+  // Fluxo "bateu o QR, já vai": confirma na hora (verde + beep) e grava em background.
+  // Se a rede falhar, cai na fila offline e sincroniza depois — não perde o credenciamento.
+  function credenciarPessoa(det) {
+    const ex = det.dados_extra && typeof det.dados_extra === 'object' ? det.dados_extra : {};
+    const grupo = det.grupo || ex['Entrou no grupo?'] || ex['Está no grupo?'] || ex['Está no grupo da Imersão?'] || '';
+    const info = { nome: det.nome, tipo: det.tipo, turma: det.turma, camisa: det.tamanhoCamisa };
+    if (grupo) info.grupo = grupo;
+
+    if (det.credenciado) { beepOk(); return { status: 'duplicado', ...info }; }
+
+    // Confirma de imediato; a gravação acontece em background (não trava a fila).
+    beepOk();
+    api.credenciar(det.id, true)
+      .then(() => {
+        qc.invalidateQueries({ queryKey: ['participantes', det.evento_id] });
+        qc.invalidateQueries({ queryKey: ['participantes', eventoId] });
+        qc.invalidateQueries({ queryKey: ['eventos'] });
+      })
+      .catch((e) => {
+        if (!navigator.onLine || e?.code === 'network') {
+          // Piscou a rede: enfileira para sincronizar quando voltar (já mostramos OK).
+          enfileirar({ id: det.id, credenciado: true });
+          setPendentes(tamanhoFila());
+        } else {
+          // Falha real do servidor: avisa para reescanear e reflete o estado verdadeiro.
+          beepErr();
+          toast(`Falha ao gravar ${det.nome} — escaneie de novo`, 'danger');
+          qc.invalidateQueries({ queryKey: ['participantes', det.evento_id] });
+          qc.invalidateQueries({ queryKey: ['participantes', eventoId] });
+        }
+      });
+    return { status: 'ok', ...info };
   }
 
   async function aoEscanear(raw) {
