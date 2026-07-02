@@ -66,6 +66,12 @@ do runtime do credenciamento.
 - `/api/resolver?evento&token` → 200 (achou, credencia) · 409 (pessoa é de outro
   evento, informa qual) · 404 (não cadastrado). O 409/404 dispara a **busca
   manual** (nome/CPF) dentro do scanner.
+- **Resolução local-first:** o scanner primeiro procura o token na lista já
+  carregada do evento (instantâneo e funciona offline); só consulta o servidor
+  para QR desconhecido/de outro evento. O código lido é sanitizado no servidor
+  (charset restrito) — QR estranho vira 404, nunca 500.
+- Leitura de QR usa o **BarcodeDetector nativo** do navegador quando existe
+  (Android/Chrome), com fallback jsQR via canvas.
 
 ## 5. Autenticação
 
@@ -75,8 +81,12 @@ do runtime do credenciamento.
 
 ## 6. Offline / multi-estação
 
-- TanStack Query faz **poll a cada 5s** e mantém cache; se cair a conexão, a tela
-  segue funcionando.
+- TanStack Query faz **poll a cada 5s** com **delta**: o cliente manda
+  `since=<updatedAt>&n=<qtd>`; se nada mudou o servidor responde só
+  `{unchanged:true}` (índice `(evento_id, updated_at)` no banco). Respostas da
+  API saem com **gzip** e os assets do build com cache imutável.
+- Se cair a conexão, a tela segue funcionando (cache em localStorage); chamadas
+  têm timeout de 12s — rede travada vira "offline", não tela congelada.
 - Credenciamentos feitos offline entram numa **fila em localStorage**
   (`src/offline.js`) e **sincronizam sozinhos ao reconectar** (operação
   idempotente). Indicador de online/pendentes no topo.

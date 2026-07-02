@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, auth } from './api.js';
 import { useToast } from './components/Toasts.jsx';
@@ -96,7 +96,8 @@ function Credenciamento({ operador, onLogout }) {
       if (!typing && (e.key === '/' || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k'))) {
         e.preventDefault(); searchRef.current?.focus();
       }
-      if (e.key === 'Escape') setScanOpen(false);
+      // Esc não fecha o scanner enquanto se digita na busca manual (evita fechar sem querer).
+      if (e.key === 'Escape' && !typing) setScanOpen(false);
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -136,7 +137,13 @@ function Credenciamento({ operador, onLogout }) {
 
   const { data, isError, isFetching, isLoading } = useQuery({
     queryKey: ['participantes', eventoId],
-    queryFn: () => api.listar(eventoId),
+    // Delta-polling: manda o "estado" atual (updatedAt + tamanho); se nada mudou,
+    // o servidor responde `unchanged` e mantemos o mesmo objeto (zero re-render).
+    queryFn: async () => {
+      const prev = qc.getQueryData(['participantes', eventoId]);
+      const d = await api.listar(eventoId, prev?.updatedAt, prev?.list?.length);
+      return d?.unchanged && prev ? prev : d;
+    },
     enabled: !!eventoId,
     refetchInterval: POLL_MS,
     refetchOnWindowFocus: true,
@@ -228,13 +235,36 @@ function Credenciamento({ operador, onLogout }) {
     setFiltros([...filtros, { col, key, label: v.label }]);
   }
 
+  // Render incremental: listas grandes (evento 5x) não travam o celular —
+  // mostra os primeiros N e um botão para carregar o resto (a busca filtra tudo).
+  const [limite, setLimite] = useState(250);
+  useEffect(() => { setLimite(250); }, [eventoId, busca, filtro, tipoFiltro, ordem, filtros]);
+  const visiveis = limite < filtrada.length ? filtrada.slice(0, limite) : filtrada;
+
+  // Callbacks estáveis para as linhas memoizadas (não re-renderiza a tabela toda a cada poll).
+  const { mutate: credenciarLinha } = credenciarMut;
+  const onToggleLinha = useCallback((p) => credenciarLinha({ id: p.id, credenciado: !p.credenciado, nome: p.nome }), [credenciarLinha]);
+  const onEditLinha = useCallback((p) => setEditando(p), []);
+  const onDetailLinha = useCallback((p) => setDetalheId(p.id), []);
+
   const total = lista.length;
   const cred = lista.filter((x) => x.credenciado).length;
   const pend = total - cred;
   const pct = total ? Math.round((cred / total) * 100) : 0;
 
+  // Ritmo do credenciamento (última hora) — visão de controle durante o evento.
+  const ultimaHora = useMemo(() => {
+    const corte = Date.now() - 3600_000;
+    return lista.filter((x) => {
+      if (!x.credenciado || !x.dataCredenciamento) return false;
+      const t = Date.parse(x.dataCredenciamento);
+      return !isNaN(t) && t >= corte;
+    }).length;
+  }, [lista]);
+
+  // "Sincronizando…" só na carga inicial — o poll de 5s não fica piscando o status.
   const sync = isError ? { k: 'err', t: 'Erro de conexão' }
-    : isFetching ? { k: 'warn', t: 'Sincronizando…' }
+    : isLoading ? { k: 'warn', t: 'Carregando…' }
     : { k: 'ok', t: `Sincronizado · ${horaAgora()}` };
 
   async function exportar() {
@@ -312,6 +342,13 @@ function Credenciamento({ operador, onLogout }) {
     let code = String(raw || '').trim();
     const m = code.match(/\/qr\/([^/?#]+)/);
     if (m) code = decodeURIComponent(m[1]); // QR que codifica o link inteiro
+
+    // 1º: resolve na lista já carregada — confirmação instantânea (sem ida ao
+    // servidor) e funciona mesmo se a rede cair. O servidor fica como fallback
+    // para identificar QR de outro evento/dia.
+    const local = lista.find((p) => p.pessoa_token === code || p.id === code);
+    if (local) return credenciarPessoa(local);
+
     const r = await api.resolver(eventoId, code);
     if (r.status !== 200) {
       beepErr();
@@ -432,6 +469,10 @@ function Credenciamento({ operador, onLogout }) {
               <span className="sm-label">Pendentes</span>
               <span className="sm-value">{pend}</span>
             </div>
+            <div className="summary-metric acc">
+              <span className="sm-label">Última hora</span>
+              <span className="sm-value">{ultimaHora}</span>
+            </div>
           </div>
         </div>
       </section>
@@ -527,16 +568,23 @@ function Credenciamento({ operador, onLogout }) {
                 </tr>
               </thead>
               <tbody>
-                {filtrada.map((p) => (
+                {visiveis.map((p) => (
                   <Linha key={p.id} p={p} readOnly={readOnly}
-                    onToggle={() => credenciarMut.mutate({ id: p.id, credenciado: !p.credenciado, nome: p.nome })}
-                    onEdit={() => setEditando(p)}
-                    onDetail={() => setDetalheId(p.id)} />
+                    onToggle={onToggleLinha}
+                    onEdit={onEditLinha}
+                    onDetail={onDetailLinha} />
                 ))}
               </tbody>
             </table>
           </div>
         </div>
+        {filtrada.length > visiveis.length && (
+          <div className="show-more">
+            <button className="btn" onClick={() => setLimite((l) => l + 500)}>
+              Mostrar mais ({filtrada.length - visiveis.length} restantes)
+            </button>
+          </div>
+        )}
         {!isLoading && filtrada.length === 0 && (
           <div className="empty">
             <IconSearch />
@@ -580,7 +628,9 @@ function Credenciamento({ operador, onLogout }) {
   );
 }
 
-function Linha({ p, readOnly, onToggle, onEdit, onDetail }) {
+// memo + callbacks estáveis: com o structural sharing do react-query, um poll sem
+// mudanças mantém as mesmas referências e nenhuma linha re-renderiza.
+const Linha = memo(function Linha({ p, readOnly, onToggle, onEdit, onDetail }) {
   const telClean = (p.telefone || '').replace(/\D/g, '');
   const grupoSim = p.grupo && /^sim/i.test(String(p.grupo).trim());
   const grupoNao = p.grupo && /^n[ãa]o/i.test(String(p.grupo).trim());
@@ -588,7 +638,7 @@ function Linha({ p, readOnly, onToggle, onEdit, onDetail }) {
   return (
     <tr className={p.credenciado ? 'credenciado' : ''}>
       <td>
-        <button className={`check-btn ${p.credenciado ? 'on' : ''}`} onClick={onToggle} disabled={readOnly}>
+        <button className={`check-btn ${p.credenciado ? 'on' : ''}`} onClick={() => onToggle(p)} disabled={readOnly}>
           {p.credenciado ? <><IconCheck /> Credenciado</> : <><IconSquare /> Credenciar</>}
         </button>
       </td>
@@ -597,7 +647,7 @@ function Linha({ p, readOnly, onToggle, onEdit, onDetail }) {
           <div className={`avatar avatar-${tipoCls(p.tipo)}`}>{initials(p.nome)}</div>
           <div className="name-wrap">
             <div className="name">
-              <button type="button" className="name-btn" onClick={onDetail}>{p.nome || '—'}</button>
+              <button type="button" className="name-btn" onClick={() => onDetail(p)}>{p.nome || '—'}</button>
             </div>
             {(p.nomeCracha || p.profissao || p.convidadoPor) && (
               <div className="name-sub">
@@ -634,10 +684,10 @@ function Linha({ p, readOnly, onToggle, onEdit, onDetail }) {
       </td>
       <td>
         <div className="actions-cell">
-          <button className="icon-btn" onClick={onDetail} title="Ver detalhes"><IconSearch /></button>
-          {!readOnly && <button className="icon-btn" onClick={onEdit} title="Editar"><IconEdit /></button>}
+          <button className="icon-btn" onClick={() => onDetail(p)} title="Ver detalhes"><IconSearch /></button>
+          {!readOnly && <button className="icon-btn" onClick={() => onEdit(p)} title="Editar"><IconEdit /></button>}
         </div>
       </td>
     </tr>
   );
-}
+});

@@ -27,6 +27,11 @@ create table if not exists public.participantes (
 
 create index if not exists idx_participantes_nome        on public.participantes ("nome");
 create index if not exists idx_participantes_credenciado on public.participantes ("credenciado");
+-- Índices de produção (já aplicados no projeto): resolução de QR e delta-polling.
+create index if not exists idx_part_evento         on public.participantes ("evento_id");
+create index if not exists idx_part_evento_cred    on public.participantes ("evento_id", "credenciado");
+create index if not exists idx_part_evento_token   on public.participantes ("evento_id", "pessoa_token");
+create index if not exists idx_part_evento_updated on public.participantes ("evento_id", "updated_at" desc);
 
 create table if not exists public.auditoria (
   "id"           bigint generated always as identity primary key,

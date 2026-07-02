@@ -25,6 +25,10 @@ class ApiError extends Error {
   }
 }
 
+// Wi-Fi de evento trava mais do que cai: um timeout vira erro de rede (código
+// 'network') para o credenciamento cair na fila offline em vez de ficar pendurado.
+const TIMEOUT_MS = 12000;
+
 async function request(path, { method = 'GET', body } = {}) {
   const headers = {};
   if (body !== undefined) headers['Content-Type'] = 'application/json';
@@ -36,9 +40,10 @@ async function request(path, { method = 'GET', body } = {}) {
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout ? AbortSignal.timeout(TIMEOUT_MS) : undefined,
     });
   } catch {
-    throw new ApiError('network', 0); // falha de rede (offline)
+    throw new ApiError('network', 0); // falha de rede (offline ou timeout)
   }
 
   if (res.status === 401) {
@@ -64,14 +69,20 @@ export const api = {
   atualizarEvento: (id, ev) => request(`/eventos/${encodeURIComponent(id)}`, { method: 'PUT', body: ev }),
   operadoresPublicos: () => request('/operadores'),
   trocarSenha: (senha) => request('/senha', { method: 'POST', body: { senha } }),
-  listar: (eventoId) => request(`/participantes?evento=${encodeURIComponent(eventoId)}`),
+  // since/n: delta-polling — quando nada mudou o servidor devolve { unchanged: true }.
+  listar: (eventoId, since, n) => request(
+    `/participantes?evento=${encodeURIComponent(eventoId)}`
+    + (since && Number.isFinite(n) ? `&since=${encodeURIComponent(since)}&n=${n}` : '')
+  ),
   detalhe: (id) => request(`/participantes/${encodeURIComponent(id)}`),
   resolver: async (eventoId, token) => {
     const headers = {};
     if (auth.token) headers.Authorization = `Bearer ${auth.token}`;
     let res;
-    try { res = await fetch(`/api/resolver?evento=${encodeURIComponent(eventoId)}&token=${encodeURIComponent(token)}`, { headers }); }
-    catch { return { status: 0 }; }
+    try {
+      res = await fetch(`/api/resolver?evento=${encodeURIComponent(eventoId)}&token=${encodeURIComponent(token)}`,
+        { headers, signal: AbortSignal.timeout ? AbortSignal.timeout(TIMEOUT_MS) : undefined });
+    } catch { return { status: 0 }; }
     if (res.status === 401) { auth.clear(); window.dispatchEvent(new Event('chf:unauthorized')); return { status: 401 }; }
     let body = {}; const t = await res.text(); if (t) { try { body = JSON.parse(t); } catch { /* ignora */ } }
     return { status: res.status, ...body };

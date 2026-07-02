@@ -58,12 +58,13 @@ button{font-family:inherit}
 .summary-fill{height:100%;background:linear-gradient(90deg,var(--success),var(--success-2));border-radius:999px;transition:width .4s ease}
 .summary-progress-label{margin-top:8px;font-size:13px;color:var(--muted)}
 .summary-progress-label strong{color:var(--text);font-weight:700}
-.summary-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:18px}
+.summary-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:18px}
 .summary-metric{display:flex;flex-direction:column;gap:3px;padding:12px 14px;border-radius:var(--radius-sm);background:var(--card-2);border:1px solid var(--line)}
 .summary-metric .sm-label{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);font-weight:700}
 .summary-metric .sm-value{font-size:24px;font-weight:800;letter-spacing:-.5px}
 .summary-metric.ok .sm-value{color:var(--success)}
 .summary-metric.warn .sm-value{color:#b3700a}
+.summary-metric.acc .sm-value{color:var(--primary)}
 
 /* Toolbar */
 .toolbar{max-width:1400px;margin:22px auto 0;padding:0 24px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
@@ -160,6 +161,9 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 
 .empty{text-align:center;padding:60px 20px;color:var(--muted)}
 .empty svg{width:54px;height:54px;opacity:.6;margin-bottom:10px}
+
+/* Render incremental de listas grandes */
+.show-more{display:flex;justify-content:center;padding:14px 0 4px}
 
 /* Modal */
 .modal-overlay{position:fixed;inset:0;background:rgba(29,29,27,.42);backdrop-filter:blur(4px);display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;z-index:100;overflow-y:auto}

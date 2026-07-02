@@ -74,7 +74,7 @@ function AbaEventos({ eventos, qc, toast }) {
 
   return (
     <div>
-      {eventos.sort((a, b) => a.ordem - b.ordem).map((e) => <LinhaEvento key={e.id} ev={e} onSalvar={salvar} salvando={salvando === e.id} />)}
+      {[...eventos].sort((a, b) => a.ordem - b.ordem).map((e) => <LinhaEvento key={e.id} ev={e} onSalvar={salvar} salvando={salvando === e.id} />)}
       <div className="detail-section">Novo evento</div>
       <div className="ev-form">
         <input placeholder="Nome (ex: Encontro de Diamantes)" value={novo.nome} onChange={(ev) => setNovo({ ...novo, nome: ev.target.value })} />

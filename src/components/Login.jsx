@@ -34,7 +34,7 @@ export default function Login({ onLogin }) {
     <div className="login-overlay">
       <form className="login-card" onSubmit={submit}>
         <img className="brand-logo-lg" src="/thb-logo.png" alt="Time Holding Brasil" />
-        <h2>Credenciamento CHF 2026</h2>
+        <h2>Credenciamento THB</h2>
         <p className="sub">Entre para começar o atendimento</p>
         <div className="field">
           <label>Seu nome (operador)</label>

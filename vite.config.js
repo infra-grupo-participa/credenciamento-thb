@@ -28,8 +28,20 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,png,svg,woff,woff2}'],
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api/],
+        // /qr e /qrimg são páginas do servidor (QR público) — o SW não pode
+        // respondê-las com o index.html do app.
+        navigateFallbackDenylist: [/^\/api/, /^\/qr\//, /^\/qrimg\//, /^\/health/],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+        // Fontes do Google cacheadas no aparelho: abre rápido e funciona offline.
+        runtimeCaching: [{
+          urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
+          handler: 'CacheFirst',
+          options: {
+            cacheName: 'google-fonts',
+            expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 },
+            cacheableResponse: { statuses: [0, 200] },
+          },
+        }],
       },
     }),
   ],

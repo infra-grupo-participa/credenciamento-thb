@@ -5,11 +5,14 @@ require('dotenv').config();
 const path = require('path');
 const crypto = require('crypto');
 const express = require('express');
+const compression = require('compression');
 const QRCode = require('qrcode');
 const db = require('./db');
 
 const app = express();
 app.disable('x-powered-by');
+app.set('trust proxy', 1); // atrás do proxy da Hostinger — req.ip = IP real
+app.use(compression()); // gzip — a lista de participantes encolhe ~85%
 app.use(express.json({ limit: '8mb' })); // 8mb cobre fotos em base64
 
 const PORT = process.env.PORT || 3000;
@@ -66,8 +69,22 @@ async function senhaValida(senha) {
 /* ============================== ROTAS API ============================== */
 const api = express.Router();
 
+// Limite simples de tentativas de login por IP (30/min) — barra força bruta
+// sem atrapalhar a equipe (que loga uma vez por turno).
+const tentativasLogin = new Map(); // ip -> { n, t0 }
+function rateLimitLogin(req, res, next) {
+  const now = Date.now();
+  if (tentativasLogin.size > 5000) tentativasLogin.clear(); // teto de memória
+  const a = tentativasLogin.get(req.ip) || { n: 0, t0: now };
+  if (now - a.t0 > 60_000) { a.n = 0; a.t0 = now; }
+  a.n++;
+  tentativasLogin.set(req.ip, a);
+  if (a.n > 30) return res.status(429).json({ error: 'muitas_tentativas' });
+  next();
+}
+
 // Login: nome do operador + senha do evento -> token.
-api.post('/login', async (req, res) => {
+api.post('/login', rateLimitLogin, async (req, res) => {
   const operador = String(req.body.operador || '').trim().slice(0, 120);
   const senha = String(req.body.senha || '');
   if (!operador) return res.status(400).json({ error: 'informe_o_nome' });
@@ -134,10 +151,20 @@ api.get('/eventos', auth, async (req, res) => {
 });
 
 // Lista (leve) de um evento — base do polling.
+// Delta: o cliente manda ?since=<updatedAt>&n=<qtd>; se nada mudou, a resposta
+// é só { unchanged: true } (poupa banda e CPU com vários aparelhos consultando).
 api.get('/participantes', auth, async (req, res) => {
   try {
     const evento = String(req.query.evento || '');
     if (!evento) return res.status(400).json({ error: 'evento_obrigatorio' });
+    const since = String(req.query.since || '');
+    const n = Number(req.query.n);
+    if (since && Number.isFinite(n)) {
+      const st = await db.repo.estadoLista(evento);
+      if (st.updatedAt === since && st.count === n) {
+        return res.json({ unchanged: true, updatedAt: since });
+      }
+    }
     res.json(await db.repo.listar(evento));
   } catch (e) {
     console.error(e.message);
@@ -282,6 +309,7 @@ api.post('/import', auth, async (req, res) => {
     res.json({ ok: true, count });
   } catch (e) {
     console.error(e.message);
+    if (e.message === 'lista_vazia') return res.status(400).json({ error: 'lista_vazia' });
     res.status(500).json({ error: 'import_failed' });
   }
 });
@@ -320,8 +348,10 @@ app.use('/api', api);
 /* ==================== FRONT-END (build do Vite em /dist) ==================== */
 const DIST = path.join(__dirname, 'dist');
 
-// Nome público do evento conforme o grupo do token.
-function nomeEventoPublico(eventoId) {
+// Nome público do evento: usa o nome cadastrado (sem o sufixo de dia — o mesmo
+// QR vale em todos os dias), com fallback para os nomes históricos.
+function nomeEventoPublico(eventoId, eventoNome) {
+  if (eventoNome) return String(eventoNome).replace(/\s*[—–-]\s*Dia\s*\d+\s*$/i, '');
   const e = String(eventoId || '');
   if (e.startsWith('imersao')) return 'Imersão Holding Sem Improviso';
   if (e.startsWith('clinica')) return 'Clínica de Holding Familiar';
@@ -335,7 +365,7 @@ app.get('/qr/:token', async (req, res) => {
     let nome = ''; let titulo = 'Credenciamento';
     try {
       const info = await db.repo.infoPorToken(req.params.token);
-      if (info) { nome = info.nome; titulo = nomeEventoPublico(info.evento_id); }
+      if (info) { nome = info.nome; titulo = nomeEventoPublico(info.evento_id, info.evento_nome); }
     } catch { /* segue */ }
     const dataUrl = await QRCode.toDataURL(String(req.params.token), { margin: 1, width: 320 });
     res.set('Content-Type', 'text/html; charset=utf-8');
@@ -368,7 +398,12 @@ app.get('/qrimg/:token', async (req, res) => {
   }
 });
 
-app.use(express.static(DIST));
+// Assets com hash no nome (dist/assets) podem ser cacheados "para sempre";
+// o resto (index.html, sw.js, manifest) sempre revalida para pegar deploys novos.
+app.use('/assets', express.static(path.join(DIST, 'assets'), { maxAge: '365d', immutable: true }));
+app.use(express.static(DIST, {
+  setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache'),
+}));
 
 // Fallback SPA: qualquer rota que não seja /api devolve o index.html.
 app.get(/^(?!\/api).*/, (req, res) => {

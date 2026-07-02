@@ -53,6 +53,11 @@ function unwrap({ data, error }) {
 }
 
 const TABELA = 'participantes';
+// Charset seguro para código lido do QR (token hex ou id gerado/importado).
+// Vírgulas/parênteses quebrariam o filtro .or() do PostgREST — QR desconhecido
+// com esses caracteres deve virar "não encontrado", nunca erro 500.
+const CODE_RE = /^[A-Za-z0-9_.:@-]{1,64}$/;
+const codeSeguro = (c) => (CODE_RE.test(String(c || '')) ? String(c) : null);
 // Colunas leves da listagem (sem foto nem dados_extra).
 const LIGHT = 'id,evento_id,nome,nomeCracha,email,telefone,documento,turma,profissao,instrucao,tipo,grupoDiamante,convidadoPor,tamanhoCamisa,grupo,pessoa_token,recebeuCracha,credenciado,dataCredenciamento,temFoto,dados_extra,updated_at';
 // Colunas do detalhe (tudo exceto a foto, que é carregada à parte).
@@ -142,6 +147,7 @@ const repo = {
 
   // Resolve a pessoa pelo código (token OU id) DENTRO de um evento/dia.
   async porToken(eventoId, code) {
+    code = codeSeguro(code);
     if (!eventoId || !code) return null;
     const data = unwrap(await sb().from(TABELA).select(DETALHE).eq('evento_id', eventoId)
       .or(`pessoa_token.eq.${code},id.eq.${code}`).limit(1));
@@ -149,14 +155,32 @@ const repo = {
   },
   // Localiza a pessoa em QUALQUER evento (para identificar quando o dia está errado).
   async localizar(code) {
+    code = codeSeguro(code);
     if (!code) return [];
     return unwrap(await sb().from(TABELA).select('id,nome,evento_id').or(`pessoa_token.eq.${code},id.eq.${code}`));
   },
-  // Nome + evento para a página pública do QR.
+  // Nome + evento para a página pública do QR (inclui o nome real do evento).
   async infoPorToken(token) {
     if (!token) return null;
     const data = unwrap(await sb().from(TABELA).select('nome,evento_id').eq('pessoa_token', token).limit(1));
-    return data.length ? data[0] : null;
+    if (!data.length) return null;
+    const info = data[0];
+    try {
+      const ev = unwrap(await sb().from('eventos').select('nome').eq('id', info.evento_id).limit(1));
+      if (ev.length) info.evento_nome = ev[0].nome;
+    } catch { /* segue sem o nome do evento */ }
+    return info;
+  },
+
+  // Estado leve da lista (máx updated_at + contagem) — base do delta-polling:
+  // se nada mudou desde o último poll, o servidor responde "unchanged" em bytes.
+  async estadoLista(eventoId) {
+    const { data, error, count } = await sb().from(TABELA)
+      .select('updated_at', { count: 'exact' })
+      .eq('evento_id', eventoId)
+      .order('updated_at', { ascending: false }).limit(1);
+    if (error) throw new Error(error.message || 'supabase_error');
+    return { updatedAt: data && data.length ? data[0].updated_at : null, count: count || 0 };
   },
 
   async criar(p) {
@@ -219,14 +243,19 @@ const repo = {
     if (!chaves) return [];
     const doc = (chaves.documento || '').replace(/\D/g, '');
     const email = (chaves.email || '').trim().toLowerCase();
-    const ors = [];
-    if (doc) ors.push(`documento.eq.${chaves.documento}`);
-    if (email) ors.push(`email.ilike.${email}`);
-    if (!ors.length) return [];
-    const data = unwrap(await sb().from(TABELA)
-      .select('id,evento_id,credenciado,dataCredenciamento')
-      .or(ors.join(',')));
-    return data.map((r) => ({ ...r, credenciado: !!r.credenciado }));
+    // Consultas separadas (sem .or): e-mail/documento com vírgula ou parêntese
+    // quebraria a sintaxe de filtro do PostgREST.
+    const SEL = 'id,evento_id,credenciado,dataCredenciamento';
+    const achados = new Map();
+    if (doc) {
+      unwrap(await sb().from(TABELA).select(SEL).eq('documento', chaves.documento))
+        .forEach((r) => achados.set(r.id, r));
+    }
+    if (email) {
+      unwrap(await sb().from(TABELA).select(SEL).ilike('email', email))
+        .forEach((r) => achados.set(r.id, r));
+    }
+    return [...achados.values()].map((r) => ({ ...r, credenciado: !!r.credenciado }));
   },
 
   async auditoria(eventoId, limit = 300) {
@@ -249,8 +278,12 @@ const repo = {
   // Importa lista de UM evento. modo: 'substituir' (apaga e insere) ou 'adicionar'.
   async importarLista(eventoId, list, modo = 'substituir') {
     if (!eventoId) throw new Error('evento_obrigatorio');
-    if (modo === 'substituir') unwrap(await sb().from(TABELA).delete().eq('evento_id', eventoId));
+    // Normaliza ANTES de apagar: se a lista vier inválida, o evento não é perdido.
     const rows = list.map((p) => normalize({ ...p, evento_id: eventoId }, { generateId: true })).filter(Boolean);
+    if (modo === 'substituir') {
+      if (!rows.length) throw new Error('lista_vazia');
+      unwrap(await sb().from(TABELA).delete().eq('evento_id', eventoId));
+    }
     for (let i = 0; i < rows.length; i += 500) {
       unwrap(await sb().from(TABELA).insert(rows.slice(i, i + 500)));
     }

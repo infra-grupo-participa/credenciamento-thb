@@ -84,11 +84,29 @@ export default function ScannerModal({ onDetected, onManual, lista = [], onClose
   useEffect(() => {
     let stream;
     let lastScan = 0;
+    let detecting = false; // evita detecções nativas sobrepostas
     const canvas = document.createElement('canvas');
     const cx = canvas.getContext('2d', { willReadFrequently: true });
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    // Detector nativo do navegador (Android/Chrome): decodifica direto do vídeo,
+    // sem copiar frame para canvas — mais rápido e mais frio. jsQR fica de fallback.
+    let detector = null;
+    try {
+      if ('BarcodeDetector' in window) detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+    } catch { detector = null; }
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } })
       .then((s) => { stream = s; const v = videoRef.current; if (v) { v.srcObject = s; v.play().catch(() => {}); } loop(); })
       .catch(() => setErro('Não foi possível acessar a câmera (permita o acesso).'));
+
+    function achou(data, now) {
+      const c = String(data || '').trim();
+      if (!c) return;
+      const l = last.current;
+      const aindaEmQuadro = l && l.code === c && (now - l.at) < GAP_MS;
+      // Mesmo QR continua na frente da câmera: só atualiza o "visto agora", não reprocessa.
+      last.current = { code: c, at: now };
+      if (!aindaEmQuadro) process(c);
+    }
 
     function loop(ts) {
       rafRef.current = requestAnimationFrame(loop);
@@ -97,28 +115,25 @@ export default function ScannerModal({ onDetected, onManual, lista = [], onClose
       lastScan = now;
 
       const v = videoRef.current;
-      if (!v || v.readyState !== v.HAVE_ENOUGH_DATA || busy.current) return;
+      if (!v || v.readyState !== v.HAVE_ENOUGH_DATA || busy.current || detecting) return;
 
-      // Downscale para acelerar e manter a câmera fluida em sessões longas.
+      if (detector) {
+        detecting = true;
+        detector.detect(v)
+          .then((codes) => achou(codes && codes[0] && codes[0].rawValue, performance.now()))
+          .catch(() => { detector = null; }) // navegador anuncia mas não suporta -> jsQR
+          .finally(() => { detecting = false; });
+        return;
+      }
+
+      // Fallback jsQR: downscale para acelerar e manter a câmera fluida em sessões longas.
       const scale = Math.min(1, MAX_SCAN_W / (v.videoWidth || MAX_SCAN_W));
       canvas.width = Math.round((v.videoWidth || MAX_SCAN_W) * scale);
       canvas.height = Math.round((v.videoHeight || MAX_SCAN_W) * scale);
       cx.drawImage(v, 0, 0, canvas.width, canvas.height);
       const img = cx.getImageData(0, 0, canvas.width, canvas.height);
       const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
-      if (!code || !code.data) return;
-
-      const c = code.data.trim();
-      if (!c) return;
-      const l = last.current;
-      const aindaEmQuadro = l && l.code === c && (now - l.at) < GAP_MS;
-      if (aindaEmQuadro) {
-        // Mesmo QR continua na frente da câmera: só atualiza o "visto agora", não reprocessa.
-        last.current = { code: c, at: now };
-      } else {
-        last.current = { code: c, at: now };
-        process(c);
-      }
+      if (code) achou(code.data, now);
     }
 
     async function process(code) {
