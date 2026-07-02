@@ -367,6 +367,22 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
   .scan-nome{font-size:20px}
   .scan-tap-hint{display:block;margin-top:2px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
 }
+/* Ação no card de erro: credenciar direto no evento certo */
+.scan-troca{margin-top:6px}
+
+/* Últimos credenciados da sessão (com desfazer) */
+.scan-recentes{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px}
+.scan-recentes-label{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);font-weight:700;flex-shrink:0}
+.scan-recente{display:inline-flex;align-items:center;gap:8px;background:rgba(31,157,87,.08);border:1px solid rgba(31,157,87,.3);border-radius:999px;padding:5px 6px 5px 12px;font-size:12.5px;font-weight:600;color:var(--text)}
+.scan-recente em{font-style:normal;color:var(--muted-2);font-size:11px}
+.scan-recente button{border:none;background:rgba(29,29,27,.07);color:var(--muted);border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit}
+.scan-recente button:hover{background:rgba(226,59,59,.12);color:var(--danger)}
+
+/* Cadastro rápido de walk-in dentro do scanner */
+.scan-quick{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.scan-quick select{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;outline:none}
+.scan-quick .btn{padding:10px 14px}
+
 /* Busca manual rápida dentro do scanner (quando o QR não é reconhecido) */
 .scan-manual{margin-top:14px}
 .scan-manual-input{width:100%;font-size:16px;padding:12px 14px}

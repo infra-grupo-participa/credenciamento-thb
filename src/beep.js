@@ -14,5 +14,10 @@ function tom(freq, dur, type = 'sine', delay = 0) {
     o.start(t); o.stop(t + dur / 1000 + 0.02);
   } catch { /* ignora */ }
 }
-export const beepOk = () => { tom(880, 90); tom(1320, 120, 'sine', 0.09); };
-export const beepErr = () => { tom(200, 240, 'square'); };
+// Vibração (celular): feedback que o operador sente mesmo em salão barulhento.
+function vibrar(padrao) {
+  try { if (navigator.vibrate) navigator.vibrate(padrao); } catch { /* ignora */ }
+}
+
+export const beepOk = () => { tom(880, 90); tom(1320, 120, 'sine', 0.09); vibrar(60); };
+export const beepErr = () => { tom(200, 240, 'square'); vibrar([90, 60, 90]); };

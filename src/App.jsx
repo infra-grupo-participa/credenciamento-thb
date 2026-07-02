@@ -309,7 +309,8 @@ function Credenciamento({ operador, onLogout }) {
   function credenciarPessoa(det) {
     const ex = det.dados_extra && typeof det.dados_extra === 'object' ? det.dados_extra : {};
     const grupo = det.grupo || ex['Entrou no grupo?'] || ex['Está no grupo?'] || ex['Está no grupo da Imersão?'] || '';
-    const info = { nome: det.nome, tipo: det.tipo, turma: det.turma, camisa: det.tamanhoCamisa };
+    // id incluído para o "Desfazer" da sessão do scanner.
+    const info = { id: det.id, nome: det.nome, tipo: det.tipo, turma: det.turma, camisa: det.tamanhoCamisa };
     if (grupo) info.grupo = grupo;
 
     if (det.credenciado) { beepOk(); return { status: 'duplicado', ...info }; }
@@ -354,12 +355,38 @@ function Credenciamento({ operador, onLogout }) {
       beepErr();
       if (r.status === 409) {
         const onde = (r.eventos || []).map((id) => (eventos.find((e) => e.id === id) || {}).nome || id).join(', ');
-        return { status: 'erro', nome: r.nome || 'Pessoa de outro evento', sub: `Pertence a: ${onde}. Selecione o dia correto.` };
+        // Destino para credenciar em um toque: prioriza o evento com a data de hoje
+        // (pessoa nos dois dias da clínica -> escolhe o dia certo), senão um ativo.
+        const hoje = new Date().toLocaleDateString('sv-SE'); // yyyy-mm-dd local
+        const cands = (r.eventos || []).map((id) => eventos.find((e) => e.id === id)).filter((e) => e && !e.arquivado);
+        const destino = cands.find((e) => e.data === hoje) || cands.find((e) => e.ativo) || cands[0];
+        return {
+          status: 'erro', nome: r.nome || 'Pessoa de outro evento',
+          sub: `Pertence a: ${onde}.${destino ? '' : ' Selecione o dia correto.'}`,
+          trocaEvento: destino ? { eventoId: destino.id, nome: destino.nome, code } : undefined,
+        };
       }
       if (r.status === 0) return { status: 'erro', nome: 'Sem conexão' };
       return { status: 'erro', nome: 'QR não reconhecido', sub: 'Use a busca abaixo (nome ou CPF) para credenciar.', naoReconhecido: true };
     }
     return credenciarPessoa(r);
+  }
+
+  // "Credenciar em [evento]" no card de erro: troca o evento ativo e credencia direto.
+  async function trocarECredenciar({ eventoId: novoId, code }) {
+    setEventoId(novoId);
+    const r = await api.resolver(novoId, code);
+    if (r.status === 200) return credenciarPessoa(r);
+    beepErr();
+    return { status: 'erro', nome: 'Não foi possível credenciar no outro evento' };
+  }
+
+  // Walk-in pelo scanner: cadastra o mínimo (nome + tipo) e já credencia.
+  async function cadastrarRapido({ nome, tipo }) {
+    const criado = await api.criar({ nome, tipo, evento_id: eventoId });
+    qc.invalidateQueries({ queryKey: ['participantes', eventoId] });
+    qc.invalidateQueries({ queryKey: ['eventos'] });
+    return credenciarPessoa(criado);
   }
 
   return (
@@ -621,7 +648,13 @@ function Credenciamento({ operador, onLogout }) {
         <HistoryModal eventos={eventos} onClose={() => setHistOpen(false)}
           onOpen={(id) => { setEventoId(id); setHistOpen(false); }} />
       )}
-      {scanOpen && <ScannerModal onDetected={aoEscanear} onManual={credenciarPessoa} lista={lista} eventoNome={eventoAtual?.nome || ''} onClose={() => setScanOpen(false)} />}
+      {scanOpen && (
+        <ScannerModal onDetected={aoEscanear} onManual={credenciarPessoa}
+          onUndo={(id, nome) => credenciarMut.mutate({ id, credenciado: false, nome })}
+          onTrocarEvento={trocarECredenciar}
+          onQuickAdd={cadastrarRapido}
+          lista={lista} eventoNome={eventoAtual?.nome || ''} onClose={() => setScanOpen(false)} />
+      )}
       {dashOpen && <DashboardModal eventoId={eventoId} eventoNome={eventoAtual?.nome || ''} lista={lista} onClose={() => setDashOpen(false)} />}
       {settingsOpen && <SettingsModal eventos={eventos} onClose={() => setSettingsOpen(false)} />}
     </>

@@ -34,7 +34,7 @@ const MAX_SCAN_W = 640;
 
 // Scanner em modo quiosque: leitura CONTÍNUA de QR (um após o outro, sem reabrir)
 // + busca manual rápida (nome/CPF) para quando o QR não lê.
-export default function ScannerModal({ onDetected, onManual, lista = [], onClose, eventoNome }) {
+export default function ScannerModal({ onDetected, onManual, onUndo, onTrocarEvento, onQuickAdd, lista = [], onClose, eventoNome }) {
   const videoRef = useRef(null);
   const rafRef = useRef(0);
   const last = useRef(null);          // { code, at } — controle de presença do QR em quadro
@@ -45,10 +45,35 @@ export default function ScannerModal({ onDetected, onManual, lista = [], onClose
   const [res, setRes] = useState(null);
   const [pronto, setPronto] = useState(true);   // false enquanto processa uma leitura
   const [contador, setContador] = useState(0);  // credenciados nesta sessão de scanner
+  const [recentes, setRecentes] = useState([]); // últimos credenciados da sessão (p/ desfazer)
   const [q, setQ] = useState('');
+  const [quickTipo, setQuickTipo] = useState('comum');
   // Mantém o callback mais recente sem re-rodar o efeito da câmera (evita o flicker).
   const cbRef = useRef(onDetected);
   useEffect(() => { cbRef.current = onDetected; }, [onDetected]);
+
+  // Mantém a tela acesa durante a sessão de leitura (o descanso de tela no meio
+  // da fila obriga a destravar o celular a cada pessoa). Reobtém ao voltar do
+  // background — o navegador solta o lock quando a aba perde visibilidade.
+  useEffect(() => {
+    let lock = null;
+    let ativo = true;
+    async function pegar() {
+      try {
+        if (ativo && navigator.wakeLock && document.visibilityState === 'visible') {
+          lock = await navigator.wakeLock.request('screen');
+        }
+      } catch { /* sem suporte/permissão — segue sem */ }
+    }
+    pegar();
+    const onVis = () => { if (document.visibilityState === 'visible') pegar(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      ativo = false;
+      document.removeEventListener('visibilitychange', onVis);
+      try { lock && lock.release(); } catch { /* ignora */ }
+    };
+  }, []);
 
   // QR não reconhecido -> foca a busca manual para agilizar.
   useEffect(() => { if (res && res.naoReconhecido && buscaRef.current) buscaRef.current.focus(); }, [res]);
@@ -64,11 +89,44 @@ export default function ScannerModal({ onDetected, onManual, lista = [], onClose
   // Erros que pedem ação (QR não reconhecido) permanecem até a próxima leitura.
   function mostrarResultado(r) {
     setRes(r);
-    if (r && r.status === 'ok') setContador((c) => c + 1);
+    if (r && r.status === 'ok') {
+      setContador((c) => c + 1);
+      if (r.id) {
+        const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        setRecentes((l) => [{ id: r.id, nome: r.nome, hora }, ...l.filter((x) => x.id !== r.id)].slice(0, 4));
+      }
+    }
     clearTimeout(dismissRef.current);
     if (r && (r.status === 'ok' || r.status === 'duplicado')) {
       dismissRef.current = setTimeout(() => setRes(null), AUTO_DISMISS_MS);
     }
+  }
+
+  // Desfaz um credenciamento feito nesta sessão (scan/toque na pessoa errada).
+  function desfazer(r) {
+    if (!onUndo) return;
+    onUndo(r.id, r.nome);
+    setRecentes((l) => l.filter((x) => x.id !== r.id));
+    setContador((c) => Math.max(0, c - 1));
+  }
+
+  // Pessoa é de outro evento/dia: troca o evento ativo e credencia em um toque.
+  async function trocarECredenciar(troca) {
+    if (busy.current || !onTrocarEvento) return;
+    busy.current = true; setPronto(false);
+    try { mostrarResultado(await onTrocarEvento(troca)); }
+    catch { mostrarResultado({ status: 'erro', nome: 'Erro ao trocar de evento' }); }
+    setTimeout(() => { busy.current = false; setPronto(true); }, BUSY_LOCK_MS);
+  }
+
+  // Walk-in: cadastra (nome + tipo) e já credencia, sem sair do scanner.
+  async function cadastrarRapido() {
+    const nome = qq;
+    if (busy.current || !onQuickAdd || nome.length < 3) return;
+    busy.current = true; setPronto(false);
+    try { mostrarResultado(await onQuickAdd({ nome, tipo: quickTipo })); setQ(''); setQuickTipo('comum'); }
+    catch { mostrarResultado({ status: 'erro', nome: 'Erro ao cadastrar' }); }
+    setTimeout(() => { busy.current = false; setPronto(true); }, BUSY_LOCK_MS);
   }
 
   async function credManual(p) {
@@ -153,7 +211,9 @@ export default function ScannerModal({ onDetected, onManual, lista = [], onClose
   const st = res && (STATUS[res.status] || STATUS.erro);
 
   return (
-    <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    // Sem fechar por clique fora: um toque acidental no overlay não pode derrubar
+    // a leitura contínua no meio da fila — fecha só pelo X ou "Encerrar leitura".
+    <div className="modal-overlay">
       <div className="modal modal-lg scanner-modal" role="dialog" aria-modal="true">
         <div className="modal-head">
           <h3>Credenciando: {eventoNome || '—'}</h3>
@@ -197,10 +257,27 @@ export default function ScannerModal({ onDetected, onManual, lista = [], onClose
                     )}
                     <div className={`scan-status ${st.cls}`}>{st.txt}</div>
                     {res.sub && <div className="scan-sub">{res.sub}</div>}
+                    {res.trocaEvento && (
+                      <button type="button" className="btn primary scan-troca"
+                        onClick={(e) => { e.stopPropagation(); trocarECredenciar(res.trocaEvento); }}>
+                        Credenciar em {res.trocaEvento.nome}
+                      </button>
+                    )}
                     <div className="scan-tap-hint">toque para continuar</div>
                   </>
                 )}
               </div>
+            </div>
+          )}
+          {recentes.length > 0 && (
+            <div className="scan-recentes">
+              <span className="scan-recentes-label">Últimos:</span>
+              {recentes.map((r) => (
+                <span key={r.id} className="scan-recente">
+                  {r.nome} <em>{r.hora}</em>
+                  <button type="button" onClick={() => desfazer(r)} title="Desfazer credenciamento">Desfazer</button>
+                </span>
+              ))}
             </div>
           )}
           <div className="scan-manual">
@@ -219,7 +296,24 @@ export default function ScannerModal({ onDetected, onManual, lista = [], onClose
                 ))}
               </div>
             )}
-            {qq.length >= 2 && matches.length === 0 && <div className="scan-manual-empty">Ninguém encontrado nesta lista.</div>}
+            {qq.length >= 2 && matches.length === 0 && (
+              <div className="scan-manual-empty">
+                Ninguém encontrado nesta lista.
+                {onQuickAdd && qq.length >= 3 && !/^\d+$/.test(qq) && (
+                  <div className="scan-quick">
+                    <select value={quickTipo} onChange={(e) => setQuickTipo(e.target.value)}>
+                      <option value="comum">Comum</option>
+                      <option value="socio">Sócio</option>
+                      <option value="diamante">Diamante</option>
+                      <option value="convidado">Convidado</option>
+                    </select>
+                    <button type="button" className="btn primary" onClick={cadastrarRapido}>
+                      Cadastrar e credenciar “{qq}”
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
         <div className="modal-foot">
