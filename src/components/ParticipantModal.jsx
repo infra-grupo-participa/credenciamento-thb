@@ -20,19 +20,28 @@ export default function ParticipantModal({ participant, eventoId, nomeInicial = 
   const [foto, setFoto] = useState('');
   const fotoOriginal = useRef('');
   const [salvando, setSalvando] = useState(false);
+  // Representante: participa/recebe o e-mail no lugar do comprador (opt-in manual).
+  const REP_VAZIO = { nome: '', email: '', telefone: '', documento: '' };
+  const [temRep, setTemRep] = useState(false);
+  const [rep, setRep] = useState(REP_VAZIO);
 
   useEffect(() => {
     full.current = null;
     setFoto(''); fotoOriginal.current = '';
+    setTemRep(false); setRep(REP_VAZIO);
     if (isNew) { setForm({ ...VAZIO, nome: nomeInicial || '' }); return; }
     setForm({ ...VAZIO, ...participant });
+    if (participant.representante) { setTemRep(true); setRep({ ...REP_VAZIO, ...participant.representante }); }
     // Carrega o detalhe completo para não perder campos fora da lista leve.
     api.detalhe(participant.id).then((d) => {
       full.current = d;
       setForm((f) => ({ ...VAZIO, ...d, ...f, nome: d.nome ?? f.nome }));
+      if (d.representante) { setTemRep(true); setRep({ ...REP_VAZIO, ...d.representante }); }
       if (d.temFoto) api.getFoto(participant.id).then((r) => { setFoto(r.foto || ''); fotoOriginal.current = r.foto || ''; }).catch(() => {});
     }).catch(() => {});
   }, [participant, isNew]);
+
+  const setR = (k) => (e) => setRep((r) => ({ ...r, [k]: e.target.value }));
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -53,7 +62,9 @@ export default function ParticipantModal({ participant, eventoId, nomeInicial = 
     setSalvando(true);
     try {
       // Mescla: preserva campos do detalhe (documento, cidade, nível...) + edições do form.
-      const dados = { ...(full.current || {}), ...form, nome, evento_id: eventoId };
+      // Representante só é gravado quando a opção está marcada; senão limpa (null).
+      const representante = temRep ? rep : null;
+      const dados = { ...(full.current || {}), ...form, nome, evento_id: eventoId, representante };
       let id;
       if (isNew) {
         const criado = await api.criar(dados);
@@ -164,6 +175,26 @@ export default function ParticipantModal({ participant, eventoId, nomeInicial = 
               </div>
             </div>
             <div className="field"><label>Observações</label><textarea value={form.observacoes} onChange={set('observacoes')} /></div>
+
+            <div className="rep-box">
+              <label className="rep-check">
+                <input type="checkbox" checked={temRep} onChange={(e) => setTemRep(e.target.checked)} />
+                <span><b>Tem representante?</b> Quem participa e recebe o e-mail no lugar do comprador.</span>
+              </label>
+              {temRep && (
+                <>
+                  <div className="field-row">
+                    <div className="field"><label>Nome do representante</label><input value={rep.nome} onChange={setR('nome')} placeholder="Nome de quem vai no lugar" /></div>
+                    <div className="field"><label>Documento (CPF/CNPJ)</label><input value={rep.documento || ''} onChange={setR('documento')} /></div>
+                  </div>
+                  <div className="field-row">
+                    <div className="field"><label>E-mail do representante</label><input type="email" value={rep.email} onChange={setR('email')} placeholder="E-mail que receberá o QR" /></div>
+                    <div className="field"><label>Telefone do representante</label><input value={rep.telefone} onChange={setR('telefone')} /></div>
+                  </div>
+                  <p className="rep-hint">Na exportação, o e-mail de envio deste registro passa a ser o do representante.</p>
+                </>
+              )}
+            </div>
           </div>
           <div className="modal-foot">
             {!isNew && (

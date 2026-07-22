@@ -697,6 +697,11 @@ const Linha = memo(function Linha({ p, readOnly, onToggle, onEdit, onDetail }) {
               {p.turma && <span className="badge turma">{p.turma}</span>}
               {p.tamanhoCamisa && <span className="badge size">{p.tamanhoCamisa}</span>}
               {p.grupo && grupoBadge(p.grupo)}
+              {p.representante && (p.representante.nome || p.representante.email) && (
+                <span className="badge rep" title={`Representante: ${p.representante.nome || ''}${p.representante.email ? ' · ' + p.representante.email : ''}`}>
+                  Repr.: {p.representante.nome || p.representante.email}
+                </span>
+              )}
             </div>
           </div>
         </div>

@@ -529,3 +529,15 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 .center-screen{min-height:60vh;display:grid;place-items:center;color:var(--muted)}
 .spinner{width:34px;height:34px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--primary);animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+/* ---- Representante (participa/recebe e-mail no lugar do comprador) ---- */
+.badge.rep{background:rgba(124,58,237,.12);color:#6d28d9}
+.rep-box{margin-top:6px;border:1px dashed #e0c8ff;background:#faf5ff;border-radius:12px;padding:12px}
+.rep-check{display:flex;gap:10px;align-items:flex-start;cursor:pointer;font-size:13px;color:#3f2d63}
+.rep-check input{margin-top:2px;width:16px;height:16px;accent-color:#7c3aed}
+.rep-hint{margin:6px 2px 0;font-size:12px;color:#7c6a99}
+.detail-rep{background:#faf5ff;border:1px solid #e6d5ff;border-radius:10px;padding:10px 12px;margin-bottom:12px}
+.detail-rep-tag{display:inline-block;background:#7c3aed;color:#fff;font-size:11px;font-weight:700;border-radius:999px;padding:2px 10px;margin-bottom:6px}
+.detail-rep-body{font-size:13px;color:#2f2547;line-height:1.5}
+.detail-rep-mail{color:#5b3ea8;font-weight:600}
+.detail-rep-note{color:#8b7bb0;font-weight:500;font-size:12px}

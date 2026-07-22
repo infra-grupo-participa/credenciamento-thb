@@ -21,9 +21,15 @@ create table if not exists public.participantes (
   "foto"               text,
   -- coluna calculada: true quando há foto (evita trafegar a foto na listagem)
   "temFoto"            boolean generated always as ("foto" is not null and "foto" <> '') stored,
+  -- representante: participa/recebe o e-mail no lugar do comprador (opt-in manual).
+  -- Objeto jsonb { nome, email, telefone, documento } ou null.
+  "representante"      jsonb,
   "criado_em"          timestamptz not null default now(),
   "updated_at"         timestamptz not null default now()
 );
+
+-- Para bancos já existentes (a coluna foi adicionada por migração):
+alter table if exists public.participantes add column if not exists "representante" jsonb;
 
 create index if not exists idx_participantes_nome        on public.participantes ("nome");
 create index if not exists idx_participantes_credenciado on public.participantes ("credenciado");

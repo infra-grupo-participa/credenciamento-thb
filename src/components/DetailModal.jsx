@@ -198,6 +198,17 @@ export default function DetailModal({ participantId, eventos = [], readOnly, onC
                 </div>
               )}
 
+              {p.representante && (p.representante.nome || p.representante.email) && (
+                <div className="detail-rep">
+                  <div className="detail-rep-tag">Participa por representante</div>
+                  <div className="detail-rep-body">
+                    <div><strong>{p.representante.nome || '—'}</strong>{p.representante.documento ? ` · ${p.representante.documento}` : ''}</div>
+                    {p.representante.email && <div className="detail-rep-mail">✉ {p.representante.email} <span className="detail-rep-note">(e-mail de envio)</span></div>}
+                    {p.representante.telefone && <div>{p.representante.telefone}</div>}
+                  </div>
+                </div>
+              )}
+
               {qr && (
                 <div className="qr-row">
                   <img className="qr-img" src={qr} alt="QR do crachá" />

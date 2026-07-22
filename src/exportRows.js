@@ -12,14 +12,21 @@ export function linhasExport(list, origin) {
   return (list || []).map((p) => {
     const ex = p.dados_extra && typeof p.dados_extra === 'object' ? p.dados_extra : {};
     const endereco = pega(ex, 'THB - Endereço') || [pega(ex, 'Endereço'), pega(ex, 'Número')].filter(Boolean).join(', ');
+    // Representante (opt-in): o e-mail/telefone de DISPARO passa a ser o dele.
+    const rep = p.representante && typeof p.representante === 'object' && (p.representante.nome || p.representante.email) ? p.representante : null;
+    const emailEnvio = (rep && limpa(rep.email)) || p.email;
+    const telEnvio = (rep && limpa(rep.telefone)) || p.telefone;
     return {
       'QR (imagem)': `${origin}/qrimg/${tok(p)}`,
       'QR (link)': `${origin}/qr/${tok(p)}`,
       'Nome': p.nome,
       'Tipo': tipo(p.tipo),
+      'Ingresso': pega(ex, 'Ingresso final', 'Ingresso'),
       'Grupo (Diamante)': pega(ex, 'Categoria') || (p.grupoDiamante || ''),
-      'E-mail': p.email,
-      'Telefone': p.telefone,
+      'Representante': rep ? (rep.nome || '') : '',
+      'E-mail': emailEnvio,
+      'E-mail comprador': rep ? p.email : '',
+      'Telefone': telEnvio,
       'Documento': p.documento,
       'Cidade': p.cidade,
       'Estado': p.estado,

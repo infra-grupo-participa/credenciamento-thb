@@ -48,7 +48,8 @@ do runtime do credenciamento.
   tamanhoCamisa, tipo, grupoDiamante, grupo, convidadoPor, instrucao, nivel),
   status (`credenciado`, `dataCredenciamento`, `recebeuCracha`), `pessoa_token`
   (base do QR), `foto` (base64, carregada à parte), `temFoto` (coluna gerada),
-  `dados_extra` (jsonb com colunas extras da planilha + enriquecimento THB).
+  `dados_extra` (jsonb com colunas extras da planilha + enriquecimento THB),
+  `representante` (jsonb `{nome,email,telefone,documento}` ou null — ver seção Representante).
   **Check-in é independente por evento/dia** (cada linha tem seu `credenciado`).
 - **`app_config`** — config global por chave: `auth` (hash da senha do evento),
   `operadores` (lista p/ login), `detalhe` (campos fixados no modal).
@@ -101,6 +102,19 @@ do runtime do credenciamento.
 - **Exportar** (Excel/CSV): util único `src/exportRows.js` — 24 colunas fixas,
   sem duplicidade, com QR como imagem (`=IMAGE(/qrimg/token)`). Usado pelo botão
   principal e pelo Dashboard.
+
+## Representante (participa no lugar do comprador)
+
+- Quando o comprador não pode ir, marca-se **"Tem representante?"** no cadastro e
+  preenchem-se nome/e-mail/telefone/documento de quem vai no lugar. É **opt-in
+  manual** — nada é inferido; o campo fica `null` até ser marcado.
+- Armazenado em `participantes.representante` (jsonb). O QR e o crachá continuam
+  do **comprador** (titular do ingresso); o representante apenas comparece.
+- **Exportação:** quando há representante, a coluna **E-mail** passa a ser o e-mail
+  **dele** (é para ele que o QR é enviado); o e-mail original do comprador vai na
+  coluna **E-mail comprador**. O disparo em si é feito por fora do sistema.
+- A lista mostra um selo **"Repr.: …"** e o detalhe, um bloco destacado — para o
+  balcão saber que quem chega é o representante.
 
 ## 8. Autonomia da equipe (sem dev)
 

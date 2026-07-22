@@ -59,9 +59,9 @@ const TABELA = 'participantes';
 const CODE_RE = /^[A-Za-z0-9_.:@-]{1,64}$/;
 const codeSeguro = (c) => (CODE_RE.test(String(c || '')) ? String(c) : null);
 // Colunas leves da listagem (sem foto nem dados_extra).
-const LIGHT = 'id,evento_id,nome,nomeCracha,email,telefone,documento,turma,profissao,instrucao,tipo,grupoDiamante,convidadoPor,tamanhoCamisa,grupo,pessoa_token,recebeuCracha,credenciado,dataCredenciamento,temFoto,dados_extra,updated_at';
+const LIGHT = 'id,evento_id,nome,nomeCracha,email,telefone,documento,turma,profissao,instrucao,tipo,grupoDiamante,convidadoPor,tamanhoCamisa,grupo,pessoa_token,recebeuCracha,credenciado,dataCredenciamento,temFoto,dados_extra,representante,updated_at';
 // Colunas do detalhe (tudo exceto a foto, que é carregada à parte).
-const DETALHE = 'id,evento_id,nome,nomeCracha,email,telefone,documento,cidade,estado,turma,profissao,instrucao,nivel,faturamento,tamanhoCamisa,grupo,tipo,grupoDiamante,convidadoPor,convidadoPorId,observacoes,dataChegada,dataRetorno,dataCredenciamento,recebeuCracha,credenciado,pessoa_token,dados_extra,temFoto,criado_em,updated_at';
+const DETALHE = 'id,evento_id,nome,nomeCracha,email,telefone,documento,cidade,estado,turma,profissao,instrucao,nivel,faturamento,tamanhoCamisa,grupo,tipo,grupoDiamante,convidadoPor,convidadoPorId,observacoes,dataChegada,dataRetorno,dataCredenciamento,recebeuCracha,credenciado,pessoa_token,dados_extra,representante,temFoto,criado_em,updated_at';
 
 function shape(r) {
   if (!r) return r;
@@ -69,6 +69,16 @@ function shape(r) {
 }
 
 /* ---------- Normalização (criação/edição manual) ---------- */
+// Representante: quem participa/recebe o e-mail no lugar do comprador (opt-in
+// manual). Guarda um objeto enxuto ou null (limpa quando desmarcado/incompleto).
+function normalizeRep(r) {
+  if (!r || typeof r !== 'object') return null;
+  const s = (v) => (v == null ? '' : String(v)).trim().slice(0, 255);
+  const nome = s(r.nome); const email = s(r.email);
+  if (!nome && !email) return null; // sem nome nem e-mail não é um representante válido
+  return { nome, email, telefone: s(r.telefone), documento: s(r.documento) || null };
+}
+
 function normalize(p, { generateId = false } = {}) {
   const s = (v, max) => (v == null ? '' : String(v)).slice(0, max);
   const id = s(p.id, 64).trim() || (generateId ? newId() : '');
@@ -98,6 +108,7 @@ function normalize(p, { generateId = false } = {}) {
     foto: p.foto == null ? '' : String(p.foto),
     pessoa_token: p.pessoa_token || tokenDe(grupoDe(p.evento_id), { documento: p.documento, email: p.email, nome }),
     dados_extra: p.dados_extra && typeof p.dados_extra === 'object' ? p.dados_extra : null,
+    representante: normalizeRep(p.representante),
   };
 }
 
@@ -197,7 +208,8 @@ const repo = {
       documento: row.documento, cidade: row.cidade, estado: row.estado, turma: row.turma,
       profissao: row.profissao, instrucao: row.instrucao, nivel: row.nivel, faturamento: row.faturamento,
       tamanhoCamisa: row.tamanhoCamisa, tipo: row.tipo, grupoDiamante: row.grupoDiamante,
-      convidadoPor: row.convidadoPor, observacoes: row.observacoes, updated_at: new Date().toISOString(),
+      convidadoPor: row.convidadoPor, observacoes: row.observacoes, representante: row.representante,
+      updated_at: new Date().toISOString(),
     };
     const data = unwrap(await sb().from(TABELA).update(campos).eq('id', id).select(LIGHT));
     return data[0] ? shape(data[0]) : null;
