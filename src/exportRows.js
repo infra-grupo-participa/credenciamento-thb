@@ -19,6 +19,7 @@ export function linhasExport(list, origin) {
     return {
       'QR (imagem)': `${origin}/qrimg/${tok(p)}`,
       'QR (link)': `${origin}/qr/${tok(p)}`,
+      'Lote': pega(ex, 'lote'),
       'Nome': p.nome,
       'Tipo': tipo(p.tipo),
       'Ingresso': pega(ex, 'Ingresso final', 'Ingresso'),
@@ -49,8 +50,8 @@ export function linhasExport(list, origin) {
   });
 }
 
-// Larguras das primeiras colunas (QR imagem/link, Nome, Tipo, E-mail, Telefone, Documento).
-export const LARGURAS_EXPORT = [{ wch: 14 }, { wch: 40 }, { wch: 26 }, { wch: 10 }, { wch: 28 }, { wch: 15 }, { wch: 16 }];
+// Larguras das primeiras colunas (QR imagem/link, Lote, Nome, Tipo, E-mail, Telefone, Documento).
+export const LARGURAS_EXPORT = [{ wch: 14 }, { wch: 40 }, { wch: 6 }, { wch: 26 }, { wch: 10 }, { wch: 28 }, { wch: 15 }, { wch: 16 }];
 
 // Aplica a fórmula =IMAGE() na 1ª coluna (QR imagem) para renderizar o QR na célula.
 export function aplicarQrImagem(XLSX, ws) {
