@@ -297,16 +297,38 @@ api.get('/export', auth, async (req, res) => {
   }
 });
 
-// Importar lista de UM evento (substitui só aquele evento).
+const MODOS_IMPORT = ['substituir', 'adicionar', 'sincronizar'];
+
+// Prévia de reconciliação (dry-run): não grava nada, só devolve o que aconteceria.
+api.post('/import/previa', auth, async (req, res) => {
+  const list = Array.isArray(req.body.list) ? req.body.list : null;
+  const evento = String(req.body.evento || '');
+  if (!list || !evento) return res.status(400).json({ error: 'invalid_payload' });
+  try {
+    const previa = await db.repo.previaImport(evento, list);
+    res.json({ ok: true, previa });
+  } catch (e) {
+    console.error(e.message);
+    res.status(500).json({ error: 'previa_failed' });
+  }
+});
+
+// Importar lista de UM evento.
+//  substituir  = carga inicial (apaga o evento e insere)
+//  adicionar   = upsert idempotente, preserva credenciamento/foto/representante/lote
+//  sincronizar = idem + reporta órfãos (no banco, fora do arquivo); não apaga órfãos
 api.post('/import', auth, async (req, res) => {
   const list = Array.isArray(req.body.list) ? req.body.list : null;
   const evento = String(req.body.evento || '');
-  const modo = req.body.modo === 'adicionar' ? 'adicionar' : 'substituir';
+  const modo = MODOS_IMPORT.includes(req.body.modo) ? req.body.modo : 'substituir';
   if (!list || !evento) return res.status(400).json({ error: 'invalid_payload' });
   try {
-    const count = await db.repo.importarLista(evento, list, modo);
-    await db.audit(null, null, 'importar', req.operador, `${count} registros (${modo})`, evento);
-    res.json({ ok: true, count });
+    const r = await db.repo.importarLista(evento, list, modo);
+    const detalhe = `${r.total} no arquivo · +${r.inseridos} novos · ~${r.atualizados} atualizados`
+      + `${r.orfaos ? ` · ${r.orfaos} fora do arquivo (mantidos)` : ''} (${modo})`;
+    await db.audit(null, null, 'importar', req.operador, detalhe, evento);
+    // count mantido por compatibilidade com clientes antigos (= total processado).
+    res.json({ ok: true, count: r.total, resultado: r });
   } catch (e) {
     console.error(e.message);
     if (e.message === 'lista_vazia') return res.status(400).json({ error: 'lista_vazia' });

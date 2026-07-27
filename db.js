@@ -24,6 +24,31 @@ function tokenDe(grupo, { documento, email, nome }) {
   return crypto.createHash('sha1').update(`${grupo}|${key}`).digest('hex').slice(0, 24);
 }
 
+// Chave natural que identifica A MESMA PESSOA num evento (base do dedup do import).
+// Prioridade e-mail > documento > nome: o e-mail é único por pessoa, enquanto o
+// documento pode ser um CNPJ compartilhado por sócios (dois participantes distintos
+// com o mesmo CNPJ) — usar o documento primeiro colidiria esses cadastros num só.
+// (Difere de propósito do pessoa_token, que segue documento>e-mail para não
+// invalidar os QR já emitidos/impressos.)
+function chaveNatural({ email, documento, nome }) {
+  const em = String(email || '').trim().toLowerCase();
+  if (em) return `e:${em}`;
+  const doc = String(documento || '').replace(/\D/g, '');
+  if (doc) return `d:${doc}`;
+  const nm = String(nome || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  if (nm) return `n:${nm}`;
+  return null;
+}
+// id DETERMINÍSTICO do registro por evento: mesma pessoa reimportada = mesmo id,
+// então o import faz upsert (on conflict id) em vez de criar duplicata. Estável
+// entre reenvios do mesmo CSV, do CSV + gente a mais, e do arquivo consolidado.
+function idNatural(eventoId, pessoa) {
+  const ch = chaveNatural(pessoa);
+  if (!ch) return null;
+  const h = crypto.createHash('sha1').update(ch).digest('hex').slice(0, 20);
+  return `${String(eventoId || 'geral')}-${h}`;
+}
+
 /**
  * Credenciais do Supabase (aceita vários nomes; URL pública embutida como padrão).
  * Prefere a service_role key (ignora RLS).
@@ -287,19 +312,132 @@ const repo = {
     return true;
   },
 
-  // Importa lista de UM evento. modo: 'substituir' (apaga e insere) ou 'adicionar'.
+  // Campos que NUNCA são sobrescritos ao reimportar uma pessoa já existente:
+  // o credenciamento e o que o operador produziu na hora do evento têm precedência
+  // sobre a planilha (que só descreve a lista de convidados).
+  //  - credenciado/recebeuCracha/dataCredenciamento: estado do balcão
+  //  - foto/temFoto: foto tirada na hora
+  //  - representante: opt-in manual feito na UI
+  //  - dados_extra.lote: marcação de disparo (Active Campaign), invisível na planilha
+
+  // Prepara as linhas do import: aplica id determinístico por pessoa (dedup do
+  // próprio arquivo incluído) e retorna também a chave natural de cada uma.
+  _prepararImport(eventoId, list) {
+    const porId = new Map();
+    for (const p of list) {
+      const id = idNatural(eventoId, p) || newId(); // sem chave (nem nome) → id próprio
+      const row = normalize({ ...p, id, evento_id: eventoId });
+      if (!row) continue;
+      // Se o MESMO arquivo trouxer a pessoa 2x, a última linha vence (idempotente).
+      porId.set(row.id, row);
+    }
+    return [...porId.values()];
+  },
+
+  // Importa lista de UM evento.
+  // modo:
+  //  - 'substituir'  : apaga tudo do evento e insere a lista (destrutivo — perde
+  //                    credenciamento/foto/representante). Use só para carga inicial.
+  //  - 'adicionar'   : upsert (não duplica), preservando os campos protegidos de quem
+  //                    já existe. Não remove ninguém.
+  //  - 'sincronizar' : igual a 'adicionar' + reporta quem está no banco mas ficou fora
+  //                    do arquivo (órfãos); NÃO apaga órfãos (mais seguro manter).
   async importarLista(eventoId, list, modo = 'substituir') {
     if (!eventoId) throw new Error('evento_obrigatorio');
     // Normaliza ANTES de apagar: se a lista vier inválida, o evento não é perdido.
-    const rows = list.map((p) => normalize({ ...p, evento_id: eventoId }, { generateId: true })).filter(Boolean);
+    const rows = this._prepararImport(eventoId, list);
+
     if (modo === 'substituir') {
       if (!rows.length) throw new Error('lista_vazia');
       unwrap(await sb().from(TABELA).delete().eq('evento_id', eventoId));
+      for (let i = 0; i < rows.length; i += 500) {
+        unwrap(await sb().from(TABELA).insert(rows.slice(i, i + 500)));
+      }
+      return { total: rows.length, inseridos: rows.length, atualizados: 0, inalterados: 0, orfaos: 0 };
     }
-    for (let i = 0; i < rows.length; i += 500) {
-      unwrap(await sb().from(TABELA).insert(rows.slice(i, i + 500)));
+
+    // 'adicionar' / 'sincronizar': upsert idempotente preservando o que veio do balcão.
+    const existentes = new Map(); // id -> registro atual (campos protegidos)
+    {
+      const atuais = unwrap(await sb().from(TABELA)
+        .select('id,credenciado,recebeuCracha,dataCredenciamento,foto,temFoto,representante,dados_extra')
+        .eq('evento_id', eventoId));
+      for (const r of atuais) existentes.set(r.id, r);
     }
-    return rows.length;
+
+    const aInserir = [];
+    const aAtualizar = [];
+    for (const row of rows) {
+      const cur = existentes.get(row.id);
+      if (!cur) { aInserir.push(row); continue; }
+      // Mescla: a planilha atualiza dados de cadastro, mas o balcão manda no resto.
+      aAtualizar.push({
+        ...row,
+        credenciado: cur.credenciado,
+        recebeuCracha: cur.recebeuCracha,
+        dataCredenciamento: cur.dataCredenciamento,
+        foto: cur.foto,
+        temFoto: cur.temFoto,
+        // representante feito na UI só é mantido; a planilha não o apaga.
+        representante: cur.representante || row.representante || null,
+        // preserva o 'lote' (e qualquer chave de controle já gravada) por cima do novo.
+        dados_extra: { ...(row.dados_extra || {}), ...(cur.dados_extra || {}) },
+        updated_at: new Date().toISOString(),
+      });
+    }
+
+    for (let i = 0; i < aInserir.length; i += 500) {
+      unwrap(await sb().from(TABELA).insert(aInserir.slice(i, i + 500)));
+    }
+    for (const row of aAtualizar) {
+      const { id, ...campos } = row;
+      unwrap(await sb().from(TABELA).update(campos).eq('id', id));
+    }
+
+    const idsArquivo = new Set(rows.map((r) => r.id));
+    const orfaos = [...existentes.keys()].filter((id) => !idsArquivo.has(id)).length;
+    return {
+      total: rows.length,
+      inseridos: aInserir.length,
+      atualizados: aAtualizar.length,
+      inalterados: 0,
+      orfaos,
+    };
+  },
+
+  // Dry-run: reconcilia o arquivo contra o banco SEM gravar nada. Base da prévia
+  // que o operador aprova antes de aplicar. Detecta também possíveis duplicatas
+  // dentro do próprio arquivo (mesma pessoa, cadastros diferentes).
+  async previaImport(eventoId, list) {
+    if (!eventoId) throw new Error('evento_obrigatorio');
+    // Conta quantas linhas de entrada caem na mesma chave (duplicata no arquivo).
+    const porChave = new Map();
+    for (const p of list) {
+      if (!String(p.nome || '').trim()) continue;
+      const ch = chaveNatural(p) || `x:${Math.random()}`;
+      const g = porChave.get(ch) || [];
+      g.push(p);
+      porChave.set(ch, g);
+    }
+    const duplicatasArquivo = [...porChave.values()]
+      .filter((g) => g.length > 1)
+      .map((g) => ({ chave: chaveNatural(g[0]), nomes: g.map((x) => String(x.nome || '').trim()) }));
+
+    const rows = this._prepararImport(eventoId, list);
+    const idsBanco = new Set(
+      unwrap(await sb().from(TABELA).select('id').eq('evento_id', eventoId)).map((r) => r.id),
+    );
+    const idsArquivo = new Set(rows.map((r) => r.id));
+    let novos = 0; let atualizados = 0;
+    for (const r of rows) (idsBanco.has(r.id) ? (atualizados++) : (novos++));
+    const orfaos = [...idsBanco].filter((id) => !idsArquivo.has(id)).length;
+    return {
+      totalArquivo: rows.length,
+      novos,
+      atualizados,
+      orfaos, // no banco mas fora do arquivo (não serão apagados)
+      duplicatasArquivo, // mesma pessoa repetida no arquivo → serão fundidas
+    };
   },
 };
 

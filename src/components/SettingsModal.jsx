@@ -128,7 +128,9 @@ function mapearColunas(headers) {
     tamanhoCamisa: acha('nome do cracha') ? undefined : acha('camisa', 'tamanho'),
     nomeCracha: acha('nome do cracha', 'cracha'),
     convidadoPor: acha('pessoa que indicou', 'quem convidou', 'quem indicou', 'convidado por', 'nome do socio', 'indicou'),
-    grupoDiamante: acha('qual e o seu grupo'),
+    // Ingresso/Categoria (formato consolidado THB) alimentam o grupoDiamante:
+    // DIAMOND/VIP/PLATEIA e afins. Mantém 'qual e o seu grupo' das planilhas antigas.
+    grupoDiamante: acha('qual e o seu grupo', 'ingresso', 'categoria'),
     grupo: acha('entrou no grupo', 'esta no grupo da imersao', 'esta no grupo', 'no grupo'),
   };
 }
@@ -138,8 +140,13 @@ function montarLinhas(json, map) {
     const instr = get(r, 'instrucao'); const conv = get(r, 'convidadoPor');
     let tipo = String(get(r, 'tipo') || '').toLowerCase();
     if (!['comum', 'socio', 'diamante', 'convidado'].includes(tipo)) {
-      const i = String(instr || '').toUpperCase();
-      tipo = /DIAMANTE/.test(i) ? 'diamante' : /S[ÓO]CIO/.test(i) ? 'socio' : (conv && String(conv).trim()) ? 'convidado' : 'comum';
+      // Junta os sinais de tipo: Instrução (planilhas antigas) + Ingresso/Categoria/Origem
+      // (formato consolidado). Ex.: DIAMANTE, THB-SÓCIO, PLATEIA/DIAMOND/VIP.
+      const i = [instr, get(r, 'grupoDiamante'), r.Categoria, r.categoria, r.Origem, r.origem]
+        .map((x) => String(x || '').toUpperCase()).join(' ');
+      tipo = /DIAMANTE|DIAMOND|DIAMANTES/.test(i) ? 'diamante'
+        : /S[ÓO]CIO/.test(i) ? 'socio'
+          : (conv && String(conv).trim()) ? 'convidado' : 'comum';
     }
     return {
       nome: get(r, 'nome'), email: get(r, 'email'), telefone: String(get(r, 'telefone') || ''),
@@ -152,14 +159,48 @@ function montarLinhas(json, map) {
   }).filter((x) => String(x.nome || '').trim());
 }
 
+const COLUNAS_TEMPLATE = ['Nome', 'Documento', 'Email', 'Telefone', 'Ingresso', 'Categoria', 'Turma', 'Origem', 'Observacao'];
+
+// Gera e baixa o modelo XLSX que o operador preenche e exporta como CSV/Excel.
+async function baixarTemplate() {
+  const XLSX = await import('xlsx');
+  const wb = XLSX.utils.book_new();
+  const exemplo = [{
+    Nome: 'Maria Exemplo da Silva', Documento: '123.456.789-00', Email: 'maria@exemplo.com',
+    Telefone: '(11) 99999-0000', Ingresso: 'PLATEIA', Categoria: 'Comprador', Turma: '',
+    Origem: 'Compradores', Observacao: '',
+  }];
+  const ws = XLSX.utils.json_to_sheet(exemplo, { header: COLUNAS_TEMPLATE });
+  ws['!cols'] = COLUNAS_TEMPLATE.map((c) => ({ wch: Math.max(14, c.length + 2) }));
+  XLSX.utils.book_append_sheet(wb, ws, 'Participantes');
+  const inst = XLSX.utils.aoa_to_sheet([
+    ['Como preencher a lista de credenciamento'],
+    [''],
+    ['1. Preencha uma linha por pessoa na aba "Participantes".'],
+    ['2. Nome é obrigatório. Email é a chave que evita duplicatas — preencha sempre que tiver.'],
+    ['3. Documento: CPF ou CNPJ (pode repetir entre sócios — o sistema trata pelo email).'],
+    ['4. Ingresso/Categoria: DIAMOND, VIP, PLATEIA, SÓCIO, DIAMANTE… (define o tipo do crachá).'],
+    ['5. Origem: de qual lista veio (Compradores, Diamantes, Renovações…). Livre.'],
+    ['6. Pode reenviar o mesmo arquivo com gente a mais quantas vezes quiser:'],
+    ['   no modo "Sincronizar" o sistema NÃO duplica e NÃO apaga quem já foi credenciado.'],
+    ['7. Salve/Exporte como CSV (UTF-8) ou XLSX e envie na aba "Importar lista".'],
+    [''],
+    ['Não renomeie nem remova as colunas da aba "Participantes".'],
+  ]);
+  inst['!cols'] = [{ wch: 90 }];
+  XLSX.utils.book_append_sheet(wb, inst, 'Instruções');
+  XLSX.writeFile(wb, 'modelo-credenciamento-THB.xlsx');
+}
+
 function AbaImportar({ eventos, qc, toast }) {
   const [eventoSel, setEventoSel] = useState('');
   const [wb, setWb] = useState(null);
   const [sheets, setSheets] = useState([]);
   const [sheetSel, setSheetSel] = useState('');
   const [linhas, setLinhas] = useState([]);
-  const [modo, setModo] = useState('substituir');
+  const [modo, setModo] = useState('sincronizar');
   const [importando, setImportando] = useState(false);
+  const [previa, setPrevia] = useState(null); // relatório do dry-run
 
   async function onFile(e) {
     const file = e.target.files && e.target.files[0]; e.target.value = '';
@@ -175,31 +216,48 @@ function AbaImportar({ eventos, qc, toast }) {
   function parse(ctx, sheet) {
     const json = ctx.XLSX.utils.sheet_to_json(ctx.w.Sheets[sheet], { defval: '' });
     const headers = json.length ? Object.keys(json[0]) : [];
+    setPrevia(null);
     setLinhas(montarLinhas(json, mapearColunas(headers)));
+  }
+
+  async function verPrevia() {
+    if (!eventoSel) { toast('Escolha o evento de destino', 'danger'); return; }
+    if (!linhas.length) { toast('Nada para conferir', 'danger'); return; }
+    try {
+      const r = await api.previaImportar(eventoSel, linhas);
+      setPrevia(r.previa);
+    } catch { toast('Não consegui gerar a prévia', 'danger'); }
   }
 
   async function importar() {
     if (!eventoSel) { toast('Escolha o evento de destino', 'danger'); return; }
     if (!linhas.length) { toast('Nada para importar', 'danger'); return; }
     const ev = eventos.find((x) => x.id === eventoSel);
-    if (!confirm(`${modo === 'substituir' ? 'SUBSTITUIR' : 'Adicionar à'} lista de "${ev?.nome}" com ${linhas.length} pessoa(s)?`)) return;
+    const rotulo = modo === 'substituir' ? 'SUBSTITUIR (apaga tudo e recria)'
+      : modo === 'adicionar' ? 'Adicionar/atualizar (não duplica)'
+        : 'Sincronizar (não duplica, mantém credenciados)';
+    if (!confirm(`${rotulo}\n\nEvento "${ev?.nome}" · ${linhas.length} pessoa(s). Confirmar?`)) return;
     setImportando(true);
     try {
-      const { api } = await import('../api.js');
       const r = await api.importar(eventoSel, linhas, modo);
       await qc.invalidateQueries({ queryKey: ['participantes', eventoSel] });
       await qc.invalidateQueries({ queryKey: ['eventos'] });
-      toast(`${r.count} importados`, 'success');
-      setLinhas([]); setWb(null); setSheets([]);
+      const res = r.resultado || {};
+      toast(`+${res.inseridos ?? r.count} novos · ~${res.atualizados ?? 0} atualizados`, 'success');
+      setLinhas([]); setWb(null); setSheets([]); setPrevia(null);
     } catch { toast('Erro ao importar', 'danger'); }
     finally { setImportando(false); }
   }
 
   return (
     <div>
-      <p className="cfg-title">Carregue um CSV ou Excel (com cabeçalho). As colunas comuns são detectadas automaticamente (nome, e-mail, telefone, turma, instrução, tipo, quem convidou…).</p>
+      <p className="cfg-title">
+        Carregue um CSV ou Excel (com cabeçalho). As colunas comuns são detectadas automaticamente
+        (nome, e-mail, telefone, ingresso/categoria, turma, quem convidou…).
+        {' '}<a href="#" onClick={(e) => { e.preventDefault(); baixarTemplate().catch(() => toast('Erro ao gerar o modelo', 'danger')); }}>Baixar modelo (XLSX)</a>
+      </p>
       <div className="ev-form">
-        <select value={eventoSel} onChange={(e) => setEventoSel(e.target.value)}>
+        <select value={eventoSel} onChange={(e) => { setEventoSel(e.target.value); setPrevia(null); }}>
           <option value="">Evento de destino…</option>
           {eventos.filter((e) => !e.arquivado).map((e) => <option key={e.id} value={e.id}>{e.nome}</option>)}
         </select>
@@ -212,14 +270,36 @@ function AbaImportar({ eventos, qc, toast }) {
       </div>
       {linhas.length > 0 && (
         <>
-          <div className="detail-section">Prévia — {linhas.length} pessoa(s)</div>
+          <div className="detail-section">Arquivo — {linhas.length} pessoa(s)</div>
           <div className="kvs">
             {linhas.slice(0, 5).map((p, i) => <div key={i} className="kv"><span className="kv-k">{p.nome}</span><span className="kv-v">{p.tipo}{p.turma ? ` · ${p.turma}` : ''}{p.convidadoPor ? ` · convidado por ${p.convidadoPor}` : ''}</span></div>)}
             {linhas.length > 5 && <div className="cfg-title">…e mais {linhas.length - 5}</div>}
           </div>
+
+          <div className="ev-form" style={{ marginTop: 10, flexWrap: 'wrap' }}>
+            <label className="ev-chk"><input type="radio" checked={modo === 'sincronizar'} onChange={() => setModo('sincronizar')} /> Sincronizar (recomendado)</label>
+            <label className="ev-chk"><input type="radio" checked={modo === 'adicionar'} onChange={() => setModo('adicionar')} /> Adicionar/atualizar</label>
+            <label className="ev-chk"><input type="radio" checked={modo === 'substituir'} onChange={() => setModo('substituir')} /> Substituir tudo</label>
+          </div>
+          <p className="cfg-title">
+            {modo === 'substituir'
+              ? '⚠️ Apaga TODA a lista do evento e recria — perde credenciamento, fotos e representantes. Use só na carga inicial.'
+              : 'Não duplica: reconhece a mesma pessoa pelo e-mail (ou documento/nome) e atualiza. Preserva quem já foi credenciado, fotos, representantes e o lote.'}
+          </p>
+
+          {previa && (
+            <div className="kvs" style={{ marginTop: 6 }}>
+              <div className="kv"><span className="kv-k">Novos a inserir</span><span className="kv-v">{previa.novos}</span></div>
+              <div className="kv"><span className="kv-k">Já existem (atualizar)</span><span className="kv-v">{previa.atualizados}</span></div>
+              <div className="kv"><span className="kv-k">No banco, fora do arquivo</span><span className="kv-v">{previa.orfaos} (mantidos)</span></div>
+              {previa.duplicatasArquivo && previa.duplicatasArquivo.length > 0 && (
+                <div className="kv"><span className="kv-k">Repetidos no arquivo</span><span className="kv-v">{previa.duplicatasArquivo.length} (serão fundidos)</span></div>
+              )}
+            </div>
+          )}
+
           <div className="ev-form" style={{ marginTop: 10 }}>
-            <label className="ev-chk"><input type="radio" checked={modo === 'substituir'} onChange={() => setModo('substituir')} /> Substituir lista</label>
-            <label className="ev-chk"><input type="radio" checked={modo === 'adicionar'} onChange={() => setModo('adicionar')} /> Adicionar à lista</label>
+            <button className="btn" onClick={verPrevia} disabled={importando}>Conferir antes</button>
             <button className="btn primary" onClick={importar} disabled={importando}>{importando ? 'Importando…' : 'Importar'}</button>
           </div>
         </>

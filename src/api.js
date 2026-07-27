@@ -102,4 +102,5 @@ export const api = {
 
   exportar: (eventoId) => request(`/export?evento=${encodeURIComponent(eventoId || '')}`),
   importar: (eventoId, list, modo = 'substituir') => request('/import', { method: 'POST', body: { evento: eventoId, list, modo } }),
+  previaImportar: (eventoId, list) => request('/import/previa', { method: 'POST', body: { evento: eventoId, list } }),
 };
