@@ -156,8 +156,11 @@ export default function DashboardModal({ eventoId, eventoNome, lista, onClose })
                   <button className="btn mini" onClick={() => exportarRecorte('possiveis-compradores-faltantes', (p) => ehPossivelComprador(p) && !p.credenciado)}>
                     Exportar faltantes (CSV)
                   </button>
+                  <button className="btn mini" onClick={() => exportarRecorte('possiveis-compradores-credenciados', (p) => ehPossivelComprador(p) && p.credenciado)}>
+                    Exportar já credenciados
+                  </button>
                   <button className="btn mini ghost" onClick={() => exportarRecorte('possiveis-compradores-todos', (p) => ehPossivelComprador(p))}>
-                    Exportar todos os possíveis compradores
+                    Exportar todos
                   </button>
                 </div>
               )}

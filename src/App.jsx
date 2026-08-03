@@ -584,10 +584,11 @@ function Credenciamento({ operador, onLogout }) {
       <div className="toolbar-sub">
         <select className="ctl" value={tipoFiltro} onChange={(e) => setTipoFiltro(e.target.value)}>
           <option value="todos">Tipo: Todos</option>
-          <option value="comum">Comum</option>
+          <option value="comprador">Comprador</option>
+          <option value="convidado">Convidado</option>
           <option value="socio">Sócio</option>
           <option value="diamante">Diamante</option>
-          <option value="convidado">Convidado</option>
+          <option value="comum">Comum</option>
         </select>
         <select className="ctl" value={ordem} onChange={(e) => setOrdem(e.target.value)}>
           <option value="nome">Ordenar: Nome (A→Z)</option>

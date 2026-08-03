@@ -23,10 +23,12 @@ export function nivelInstrucao(p) {
   const ex = p && p.dados_extra && typeof p.dados_extra === 'object' ? p.dados_extra : {};
   const instr = up(ex['Instrução'] || ex['Instrucao'] || p.instrucao);
   const gd = up(p.grupoDiamante);
-  const socio = /SOCIO/.test(instr) || /SOCIO/.test(gd) || p.tipo === 'socio';
+  // Nível deriva de grupoDiamante + instrução (não do tipo — que agora é
+  // comprador/convidado, sobre quem PAGOU, não sobre o nível dentro do THB).
+  const socio = /SOCIO/.test(instr) || /SOCIO/.test(gd);
 
   let key = null;
-  if (p.tipo === 'diamante' || /DIAMANTE/.test(gd) || /DIAMANTE/.test(instr)) {
+  if (/DIAMANTE/.test(gd) || /DIAMANTE/.test(instr)) {
     key = (/VERMELHO/.test(gd) || /VERMELHO/.test(instr)) ? 'diamante_vermelho' : 'diamante';
   } else if (/PLATINA/.test(instr)) key = 'platina';
   else if (/AURUM/.test(instr)) key = 'aurum';

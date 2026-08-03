@@ -126,7 +126,7 @@ function normalize(p, { generateId = false } = {}) {
     faturamento: p.faturamento == null ? null : String(p.faturamento),
     tamanhoCamisa: s(p.tamanhoCamisa, 16),
     grupo: p.grupo == null || p.grupo === '' ? null : String(p.grupo),
-    tipo: ['comum', 'socio', 'diamante', 'convidado'].includes(p.tipo) ? p.tipo : 'comum',
+    tipo: ['comprador', 'convidado', 'comum', 'socio', 'diamante'].includes(p.tipo) ? p.tipo : 'comum',
     grupoDiamante: p.grupoDiamante ? String(p.grupoDiamante) : null,
     convidadoPor: p.convidadoPor ? String(p.convidadoPor) : null,
     observacoes: p.observacoes == null ? '' : String(p.observacoes),

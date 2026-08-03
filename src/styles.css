@@ -253,6 +253,7 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 
 /* Badges de tipo */
 .tbadge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(29,29,27,.06);color:#525866;border:1px solid transparent}
+.tbadge-comprador{background:rgba(31,157,87,.15);color:#1f9d57;border-color:rgba(31,157,87,.3)}
 .tbadge-comum{background:rgba(29,29,27,.06);color:#525866}
 .tbadge-socio{background:rgba(124,77,255,.14);color:#6b46c1}
 .tbadge-convidado{background:rgba(14,116,144,.14);color:#0e7490}
@@ -263,6 +264,7 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 /* Avatar por tipo */
 .avatar-socio{background:linear-gradient(135deg,#8b5cf6,#6d28d9)}
 .avatar-convidado{background:linear-gradient(135deg,#22b8cf,#0e7490)}
+.avatar-comprador{background:linear-gradient(135deg,#22b366,#1f9d57)}
 .avatar-diamante{background:linear-gradient(135deg,#fbbf24,#d97706);color:#3a2400}
 
 /* Detalhe */

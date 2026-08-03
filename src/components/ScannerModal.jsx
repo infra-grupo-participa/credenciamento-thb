@@ -357,10 +357,11 @@ export default function ScannerModal({ onDetected, onManual, onUndo, onTrocarEve
                 {onQuickAdd && qq.length >= 3 && !/^\d+$/.test(qq) && (
                   <div className="scan-quick">
                     <select value={quickTipo} onChange={(e) => setQuickTipo(e.target.value)}>
-                      <option value="comum">Comum</option>
+                      <option value="comprador">Comprador</option>
+                      <option value="convidado">Convidado</option>
                       <option value="socio">Sócio</option>
                       <option value="diamante">Diamante</option>
-                      <option value="convidado">Convidado</option>
+                      <option value="comum">Comum</option>
                     </select>
                     <button type="button" className="btn primary" onClick={cadastrarRapido}>
                       Cadastrar e credenciar “{qq}”
