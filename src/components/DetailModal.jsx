@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import { api } from '../api.js';
 import { tipoLabel, tipoCls } from '../tipos.js';
-import { nivelLabel, ingressoLabel, ehPossivelComprador, sinaisCracha } from '../perfil.js';
+import { nivelLabel, ingressoLabel, ehPossivelComprador } from '../perfil.js';
 import { useToast } from './Toasts.jsx';
 import { IconClose, IconCheck, IconSquare, IconEdit } from '../icons.jsx';
 
@@ -194,21 +194,15 @@ export default function DetailModal({ participantId, eventos = [], readOnly, onC
                 </div>
               )}
 
-              {/* ===== Qualificação (o que o time avaliou no crachá) ===== */}
-              {(comprador || sinaisCracha(p).length > 0) && (
+              {/* ===== Qualificação: foco do ETHB é o possível comprador do Aurum ===== */}
+              {p.tipo === 'comprador' && (
                 <section className="detail-sec">
                   <div className="detail-sec-title">Qualificação</div>
                   <div className="detail-qual-grid">
                     <div className={`detail-qual ${comprador ? 'sim' : 'nao'}`}>
-                      <span className="dq-k">Possível comprador</span>
+                      <span className="dq-k">Possível comprador (Aurum)</span>
                       <span className="dq-v">{comprador ? 'SIM' : 'não'}</span>
                     </div>
-                    {sinaisCracha(p).map((s) => (
-                      <div key={s.label} className={`detail-qual ${s.sim === true ? 'sim' : s.sim === false ? 'nao' : ''}`}>
-                        <span className="dq-k">{s.label}</span>
-                        <span className="dq-v">{s.valor}</span>
-                      </div>
-                    ))}
                   </div>
                 </section>
               )}

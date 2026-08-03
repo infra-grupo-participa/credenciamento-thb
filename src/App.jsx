@@ -13,7 +13,7 @@ import SettingsModal from './components/SettingsModal.jsx';
 import { beepOk, beepErr } from './beep.js';
 import { enfileirar, flushFila, tamanhoFila } from './offline.js';
 import { tipoLabel, tipoCls } from './tipos.js';
-import { nivelLabel, ingressoLabel, ehPossivelComprador, faturamentoDe, sinaisCracha } from './perfil.js';
+import { nivelLabel, ingressoLabel, ehPossivelComprador, faturamentoDe } from './perfil.js';
 import { linhasExport, aplicarQrImagem } from './exportRows.js';
 import {
   IconImport, IconExport, IconPlus, IconSearch, IconCheck, IconSquare, IconEdit, IconLogout, IconReset,
@@ -61,6 +61,8 @@ function Credenciamento({ operador, onLogout }) {
   const [eventoId, setEventoId] = useState(null);
   const [filtro, setFiltro] = useState('todos');
   const [tipoFiltro, setTipoFiltro] = useState('todos');
+  const [ingressoFiltro, setIngressoFiltro] = useState('todos'); // DIAMOND/VIP/PLATEIA/diamante
+  const [compradorFiltro, setCompradorFiltro] = useState('todos'); // sim/nao (possível comprador Aurum)
   const [busca, setBusca] = useState('');
   const [ordem, setOrdem] = useState('nome');
   const [filtros, setFiltros] = useState([]); // [{ col, key, label }]
@@ -216,6 +218,13 @@ function Credenciamento({ operador, onLogout }) {
       if (filtro === 'credenciados' && !x.credenciado) return false;
       if (filtro === 'pendentes' && x.credenciado) return false;
       if (tipoFiltro !== 'todos' && x.tipo !== tipoFiltro) return false;
+      if (ingressoFiltro !== 'todos') {
+        const ing = ingressoLabel(x);
+        if (ingressoFiltro === 'diamante') { if (ing) return false; } // sem ingresso pago = diamante convidado
+        else if (ing !== ingressoFiltro) return false;
+      }
+      if (compradorFiltro === 'sim' && !ehPossivelComprador(x)) return false;
+      if (compradorFiltro === 'nao' && ehPossivelComprador(x)) return false;
       for (const f of filtros) {
         const rv = norm(String((x.dados_extra && x.dados_extra[f.col]) || '').trim());
         if (rv !== f.key) return false;
@@ -238,7 +247,7 @@ function Credenciamento({ operador, onLogout }) {
       return 0;
     });
     return arr;
-  }, [lista, busca, filtro, tipoFiltro, ordem, filtros]);
+  }, [lista, busca, filtro, tipoFiltro, ingressoFiltro, compradorFiltro, ordem, filtros]);
 
   // Colunas disponíveis (todas as da planilha original) para filtro avançado.
   const colunas = useMemo(() => {
@@ -270,7 +279,7 @@ function Credenciamento({ operador, onLogout }) {
   // Render incremental: listas grandes (evento 5x) não travam o celular —
   // mostra os primeiros N e um botão para carregar o resto (a busca filtra tudo).
   const [limite, setLimite] = useState(250);
-  useEffect(() => { setLimite(250); }, [eventoId, busca, filtro, tipoFiltro, ordem, filtros]);
+  useEffect(() => { setLimite(250); }, [eventoId, busca, filtro, tipoFiltro, ingressoFiltro, compradorFiltro, ordem, filtros]);
   const visiveis = limite < filtrada.length ? filtrada.slice(0, limite) : filtrada;
 
   // Callbacks estáveis para as linhas memoizadas (não re-renderiza a tabela toda a cada poll).
@@ -350,7 +359,6 @@ function Credenciamento({ operador, onLogout }) {
       profissao: det.profissao || '', faturamento: faturamentoDe(det),
       cidade: [det.cidade, det.estado].filter(Boolean).join(' / '),
       telefone: det.telefone || '', email: det.email || '',
-      sinais: sinaisCracha(det), // possível Aurum/HM/renovações, sócio vai sozinho
     };
     if (grupo) info.grupo = grupo;
 
@@ -586,9 +594,18 @@ function Credenciamento({ operador, onLogout }) {
           <option value="todos">Tipo: Todos</option>
           <option value="comprador">Comprador</option>
           <option value="convidado">Convidado</option>
-          <option value="socio">Sócio</option>
-          <option value="diamante">Diamante</option>
-          <option value="comum">Comum</option>
+        </select>
+        <select className="ctl" value={ingressoFiltro} onChange={(e) => setIngressoFiltro(e.target.value)}>
+          <option value="todos">Ingresso: Todos</option>
+          <option value="DIAMOND">Diamond</option>
+          <option value="VIP">VIP</option>
+          <option value="PLATEIA">Plateia</option>
+          <option value="diamante">Diamante (convidado)</option>
+        </select>
+        <select className="ctl" value={compradorFiltro} onChange={(e) => setCompradorFiltro(e.target.value)}>
+          <option value="todos">Poss. comprador: Todos</option>
+          <option value="sim">Possível comprador</option>
+          <option value="nao">Não é</option>
         </select>
         <select className="ctl" value={ordem} onChange={(e) => setOrdem(e.target.value)}>
           <option value="nome">Ordenar: Nome (A→Z)</option>

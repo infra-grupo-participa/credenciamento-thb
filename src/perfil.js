@@ -66,30 +66,11 @@ export function faturamentoDe(p) {
   return String(ex['Faturamento'] || ex['faturamento'] || '').trim();
 }
 
-// Sinais de perfil do crachá (o que o time preencheu na planilha): "possível
-// Aurum/HM/renovação", "sócio vai sozinho". Vêm de dados_extra (importados da aba
-// Crachá). Devolve só os que têm valor, já normalizados para exibição (SIM/NÃO/-).
-const SINAIS_CRACHA = [
-  { k: 'possivel_aurum', label: 'Possível Aurum' },
-  { k: 'possivel_renov_aurum', label: 'Possível renov. Aurum' },
-  { k: 'possivel_hm', label: 'Possível HM' },
-  { k: 'possivel_renov_hm', label: 'Possível renov. HM' },
-  { k: 'socio_vai_sozinho', label: 'Sócio vai sozinho' },
-];
-// "SIM"/"true" → sim; "NÃO"/"false" → nao; senão o texto cru (ex.: "-").
-function classifica(v) {
-  const s = String(v == null ? '' : v).trim().toLowerCase();
-  if (!s) return null;
-  if (s === 'sim' || s === 'true') return { valor: 'SIM', sim: true };
-  if (s === 'não' || s === 'nao' || s === 'false') return { valor: 'NÃO', sim: false };
-  return { valor: String(v).trim(), sim: null };
-}
-export function sinaisCracha(p) {
-  const ex = p && p.dados_extra && typeof p.dados_extra === 'object' ? p.dados_extra : {};
-  const out = [];
-  for (const s of SINAIS_CRACHA) {
-    const c = classifica(ex[s.k]);
-    if (c && c.valor !== '-') out.push({ label: s.label, valor: c.valor, sim: c.sim });
-  }
-  return out;
+// No modelo ETHB o foco de venda é o Aurum. A flag "possível comprador"
+// (dados_extra.possivel_comprador) JÁ significa "possível comprador do Aurum" —
+// não mostramos mais os sinais separados de Aurum/renov./HM/renov.HM (decisão do
+// Marcio 2026-08-03). Mantida a função retornando vazio para não quebrar quem a
+// importa; a informação relevante fica no selo "Possível comprador".
+export function sinaisCracha() {
+  return [];
 }

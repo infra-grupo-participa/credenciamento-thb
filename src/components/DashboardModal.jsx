@@ -7,15 +7,6 @@ import { IconClose } from '../icons.jsx';
 
 // Ordem de valor dos ingressos do evento (topo → base).
 const INGRESSOS = ['DIAMOND', 'VIP', 'PLATEIA'];
-// "Produtos" que o time avaliou no crachá (colunas Possível X). Cada aluno pode
-// contar em vários — é o interesse potencial, não uma escolha única.
-const PRODUTOS = [
-  { k: 'possivel_aurum', label: 'Aurum' },
-  { k: 'possivel_renov_aurum', label: 'Renovação Aurum' },
-  { k: 'possivel_hm', label: 'Holding Masters (HM)' },
-  { k: 'possivel_renov_hm', label: 'Renovação HM' },
-];
-const ehSim = (v) => String(v == null ? '' : v).trim().toUpperCase() === 'SIM';
 
 function baixarCSV(nome, cabecalho, linhas) {
   const esc = (c) => `"${String(c == null ? '' : c).replace(/"/g, '""')}"`;
@@ -70,12 +61,6 @@ export default function DashboardModal({ eventoId, eventoNome, lista, onClose })
     const semIngresso = lista.filter((p) => !ingressoLabel(p));
     if (semIngresso.length) porIngresso.push({ ing: 'Diamante / outros', total: semIngresso.length, cred: semIngresso.filter((p) => p.credenciado).length });
 
-    // Possíveis compradores por produto (Aurum/HM/renovações) — presença dentro de cada.
-    const porProduto = PRODUTOS.map((prod) => {
-      const arr = compradores.filter((p) => ehSim(p.dados_extra && p.dados_extra[prod.k]));
-      return { label: prod.label, total: arr.length, cred: arr.filter((p) => p.credenciado).length };
-    }).filter((x) => x.total > 0);
-
     // Possíveis compradores por nível de instrução THB (extra útil — quente/morno).
     const porNivel = NIVEIS.map((n) => {
       const arr = compradores.filter((p) => nivelInstrucao(p).key === n.key);
@@ -85,12 +70,11 @@ export default function DashboardModal({ eventoId, eventoNome, lista, onClose })
     return {
       total, cred, pend: total - cred, pct: total ? Math.round((cred / total) * 100) : 0,
       comprador: compradores.length, compCred, compFalt: compradores.length - compCred,
-      porIngresso, porProduto, porNivel,
+      porIngresso, porNivel,
     };
   }, [lista]);
 
   const maxIng = Math.max(1, ...m.porIngresso.map((x) => x.total));
-  const maxProd = Math.max(1, ...m.porProduto.map((x) => x.total));
 
   // Exporta um recorte da lista (CSV no mesmo formato do Excel, sem a imagem do QR).
   function exportarRecorte(nome, filtro) {
@@ -144,8 +128,8 @@ export default function DashboardModal({ eventoId, eventoNome, lista, onClose })
                 <div className="dash-card acc"><span>Progresso</span><b>{m.pct}%</b></div>
               </div>
 
-              {/* Foco do time: possíveis compradores */}
-              <div className="detail-section">Possíveis compradores</div>
+              {/* Foco do time: possíveis compradores do Aurum */}
+              <div className="detail-section">Possíveis compradores (Aurum)</div>
               <div className="dash-cards dash-cards-3">
                 <div className="dash-card acc"><span>Total possíveis compradores</span><b>{m.comprador}</b></div>
                 <div className="dash-card ok"><span>Já credenciados (chegaram)</span><b>{m.compCred}</b></div>
@@ -172,17 +156,7 @@ export default function DashboardModal({ eventoId, eventoNome, lista, onClose })
               ))}
               <div className="dash-legenda">barra clara = total do ingresso · barra verde = já credenciados (✓)</div>
 
-              {/* Possíveis compradores por produto */}
-              <div className="detail-section">Possíveis compradores por produto</div>
-              {m.porProduto.length === 0 && <div className="photo-empty">Sem sinais de produto marcados.</div>}
-              {m.porProduto.map((x) => (
-                <Barra key={x.label} label={x.label} cred={x.cred} total={x.total} max={maxProd} tone="acc" />
-              ))}
-              {m.porProduto.length > 0 && (
-                <div className="dash-legenda">barra clara = possíveis compradores do produto · barra laranja = já credenciados (✓)</div>
-              )}
-
-              {/* Extra: possíveis compradores por nível THB (quente → base) */}
+              {/* Possíveis compradores por nível THB (quente → base) */}
               <div className="detail-section">Possíveis compradores por nível (THB)</div>
               <div className="perfil-tab-wrap">
                 <table className="perfil-tbl">
