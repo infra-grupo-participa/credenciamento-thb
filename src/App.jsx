@@ -71,7 +71,7 @@ function Credenciamento({ operador, onLogout }) {
   const [detalheId, setDetalheId] = useState(null);
   const [histOpen, setHistOpen] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
-  const [dashOpen, setDashOpen] = useState(false);
+  const [view, setView] = useState('lista'); // 'lista' | 'dashboard' — página atual
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [maisOpen, setMaisOpen] = useState(false);
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
@@ -453,10 +453,6 @@ function Credenciamento({ operador, onLogout }) {
               </button>
             )}
 
-            <button className="btn" onClick={() => setDashOpen(true)} title="Métricas do credenciamento">
-              <IconChart /> Dashboard
-            </button>
-
             <div className="mais-wrap" ref={maisRef}>
               <button className={`btn ghost ${maisOpen ? 'active' : ''}`} onClick={() => setMaisOpen((v) => !v)}
                 title="Mais ações" aria-haspopup="true" aria-expanded={maisOpen}>
@@ -491,6 +487,15 @@ function Credenciamento({ operador, onLogout }) {
 
       <EventBar eventos={eventos} eventoId={eventoId} onSelect={setEventoId} />
 
+      <nav className="view-nav">
+        <button className={`view-tab ${view === 'lista' ? 'active' : ''}`} onClick={() => setView('lista')}>
+          <IconQr /> Credenciamento
+        </button>
+        <button className={`view-tab ${view === 'dashboard' ? 'active' : ''}`} onClick={() => setView('dashboard')}>
+          <IconChart /> Dashboard
+        </button>
+      </nav>
+
       {readOnly && (
         <div className="readonly-banner">
           Visualizando <strong>{eventoAtual?.nome}</strong> (histórico — somente leitura).
@@ -508,6 +513,11 @@ function Credenciamento({ operador, onLogout }) {
         </div>
       )}
 
+      {view === 'dashboard' && (
+        <DashboardModal eventoId={eventoId} eventoNome={eventoAtual?.nome || ''} lista={lista} />
+      )}
+
+      {view === 'lista' && (<>
       <section className="summary">
         <div className="summary-card">
           <div className="summary-head">
@@ -666,6 +676,7 @@ function Credenciamento({ operador, onLogout }) {
           </div>
         )}
       </main>
+      </>)}
 
       <input ref={fileRef} type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={onImportFile} />
 
@@ -699,7 +710,6 @@ function Credenciamento({ operador, onLogout }) {
           onMarcarComprador={marcarComprador}
           lista={lista} eventoNome={eventoAtual?.nome || ''} onClose={() => setScanOpen(false)} />
       )}
-      {dashOpen && <DashboardModal eventoId={eventoId} eventoNome={eventoAtual?.nome || ''} lista={lista} onClose={() => setDashOpen(false)} />}
       {settingsOpen && <SettingsModal eventos={eventos} onClose={() => setSettingsOpen(false)} />}
     </>
   );

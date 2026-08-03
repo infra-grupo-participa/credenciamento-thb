@@ -108,14 +108,18 @@ export default function DashboardModal({ eventoId, eventoNome, lista, onClose })
     } catch { toast('Erro ao gerar Excel', 'danger'); }
   }
 
-  return (
-    <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal modal-lg" role="dialog" aria-modal="true">
+  // Página (quando embutido no app, sem onClose) ou modal (compatibilidade, com onClose).
+  const comoPagina = !onClose;
+
+  const conteudo = (
+    <>
+      {!comoPagina && (
         <div className="modal-head">
           <h3>Dashboard · {eventoNome}</h3>
           <button className="icon-btn" onClick={onClose} title="Fechar"><IconClose /></button>
         </div>
-        <div className="modal-body">
+      )}
+        <div className={comoPagina ? 'dash-page-body' : 'modal-body'}>
           <div className="tabs">
             <button className={aba === 'dashboard' ? 'active' : ''} onClick={() => setAba('dashboard')}>Dashboard</button>
             <button className={aba === 'exportar' ? 'active' : ''} onClick={() => setAba('exportar')}>Exportar</button>
@@ -228,10 +232,20 @@ export default function DashboardModal({ eventoId, eventoNome, lista, onClose })
             </div>
           )}
         </div>
+      {!comoPagina && (
         <div className="modal-foot">
           <button type="button" className="btn primary" onClick={onClose}>Fechar</button>
         </div>
-      </div>
+      )}
+    </>
+  );
+
+  // Página: renderiza direto no fluxo do app (uma "aba" separada).
+  if (comoPagina) return <div className="dash-page">{conteudo}</div>;
+  // Modal: overlay clicável para fechar (mantido por compatibilidade).
+  return (
+    <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal modal-lg" role="dialog" aria-modal="true">{conteudo}</div>
     </div>
   );
 }
