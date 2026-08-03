@@ -1,12 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api.js';
-import { tipoLabel } from '../tipos.js';
-import { NIVEIS, nivelInstrucao, ehPossivelComprador } from '../perfil.js';
+import { NIVEIS, nivelInstrucao, ehPossivelComprador, ingressoLabel } from '../perfil.js';
 import { linhasExport, aplicarQrImagem } from '../exportRows.js';
 import { useToast } from './Toasts.jsx';
 import { IconClose } from '../icons.jsx';
 
-const TIPOS = ['comum', 'socio', 'diamante', 'convidado'];
+// Ordem de valor dos ingressos do evento (topo → base).
+const INGRESSOS = ['DIAMOND', 'VIP', 'PLATEIA'];
+// "Produtos" que o time avaliou no crachá (colunas Possível X). Cada aluno pode
+// contar em vários — é o interesse potencial, não uma escolha única.
+const PRODUTOS = [
+  { k: 'possivel_aurum', label: 'Aurum' },
+  { k: 'possivel_renov_aurum', label: 'Renovação Aurum' },
+  { k: 'possivel_hm', label: 'Holding Masters (HM)' },
+  { k: 'possivel_renov_hm', label: 'Renovação HM' },
+];
+const ehSim = (v) => String(v == null ? '' : v).trim().toUpperCase() === 'SIM';
 
 function baixarCSV(nome, cabecalho, linhas) {
   const esc = (c) => `"${String(c == null ? '' : c).replace(/"/g, '""')}"`;
@@ -16,20 +25,21 @@ function baixarCSV(nome, cabecalho, linhas) {
   a.href = URL.createObjectURL(blob); a.download = nome; a.click(); URL.revokeObjectURL(a.href);
 }
 
-function Barra({ label, valor, max, sub }) {
+// Barra horizontal proporcional (credenciados sobre o total do grupo).
+function Barra({ label, valor, sub, max, tone }) {
   const pct = max ? Math.round((valor / max) * 100) : 0;
   return (
     <div className="bar-row">
       <div className="bar-label">{label}</div>
-      <div className="bar-track"><div className="bar-fill" style={{ width: `${pct}%` }} /></div>
-      <div className="bar-val">{valor}{sub ? `/${sub}` : ''}</div>
+      <div className="bar-track"><div className={`bar-fill ${tone || ''}`} style={{ width: `${pct}%` }} /></div>
+      <div className="bar-val">{valor}{sub != null ? `/${sub}` : ''}</div>
     </div>
   );
 }
 
 export default function DashboardModal({ eventoId, eventoNome, lista, onClose }) {
   const toast = useToast();
-  const [aba, setAba] = useState('resumo');
+  const [aba, setAba] = useState('dashboard');
   const [audit, setAudit] = useState(null);
 
   useEffect(() => {
@@ -38,78 +48,50 @@ export default function DashboardModal({ eventoId, eventoNome, lista, onClose })
     }
   }, [aba, audit, eventoId]);
 
-  const stats = useMemo(() => {
+  const m = useMemo(() => {
     const total = lista.length;
     const cred = lista.filter((p) => p.credenciado).length;
-    const porTipo = TIPOS.map((t) => {
-      const arr = lista.filter((p) => p.tipo === t);
-      return { t, total: arr.length, cred: arr.filter((p) => p.credenciado).length };
-    }).filter((x) => x.total > 0);
-    const turmaMap = {};
-    lista.forEach((p) => { const k = p.turma || '—'; (turmaMap[k] = turmaMap[k] || { total: 0, cred: 0 }); turmaMap[k].total++; if (p.credenciado) turmaMap[k].cred++; });
-    const porTurma = Object.entries(turmaMap).map(([k, v]) => ({ k, ...v })).sort((a, b) => b.total - a.total).slice(0, 10);
-    const horaMap = {};
-    lista.filter((p) => p.credenciado && p.dataCredenciamento).forEach((p) => {
-      const d = new Date(p.dataCredenciamento);
-      if (!isNaN(d)) { const k = `${String(d.getHours()).padStart(2, '0')}h`; horaMap[k] = (horaMap[k] || 0) + 1; }
-    });
-    const porHora = Object.entries(horaMap).map(([k, v]) => ({ k, v })).sort((a, b) => a.k.localeCompare(b.k));
-    return { total, cred, pend: total - cred, pct: total ? Math.round((cred / total) * 100) : 0, porTipo, porTurma, porHora };
-  }, [lista]);
-
-  // Perfil & presença: por NÍVEL DE INSTRUÇÃO THB (eixo que o Arthur pediu),
-  // cruzando presença (credenciado) com "possível comprador" (marcado pela equipe).
-  const perfil = useMemo(() => {
-    const base = {};
-    NIVEIS.forEach((n) => { base[n.key] = { ...n, total: 0, presentes: 0, ausentes: 0, compProx: 0, compPres: 0, compAus: 0 }; });
-    lista.forEach((p) => {
-      const n = nivelInstrucao(p);
-      const b = base[n.key] || base.thb;
-      const comp = ehPossivelComprador(p);
-      b.total++;
-      if (p.credenciado) { b.presentes++; if (comp) b.compPres++; }
-      else { b.ausentes++; if (comp) b.compAus++; }
-      if (comp) b.compProx++;
-    });
-    const linhas = NIVEIS.map((n) => base[n.key]).filter((b) => b.total > 0).sort((a, b) => b.rank - a.rank);
-    const tot = lista.length;
-    const presentes = lista.filter((p) => p.credenciado).length;
     const compradores = lista.filter(ehPossivelComprador);
+    const compCred = compradores.filter((p) => p.credenciado).length;
+
+    // Participantes por ingresso (DIAMOND/VIP/PLATEIA) — total e credenciados.
+    const porIngresso = INGRESSOS.map((ing) => {
+      const arr = lista.filter((p) => ingressoLabel(p) === ing);
+      return { ing, total: arr.length, cred: arr.filter((p) => p.credenciado).length };
+    }).filter((x) => x.total > 0);
+    const semIngresso = lista.filter((p) => !ingressoLabel(p));
+    if (semIngresso.length) porIngresso.push({ ing: 'Diamante / outros', total: semIngresso.length, cred: semIngresso.filter((p) => p.credenciado).length });
+
+    // Possíveis compradores por produto (Aurum/HM/renovações) — presença dentro de cada.
+    const porProduto = PRODUTOS.map((prod) => {
+      const arr = compradores.filter((p) => ehSim(p.dados_extra && p.dados_extra[prod.k]));
+      return { label: prod.label, total: arr.length, cred: arr.filter((p) => p.credenciado).length };
+    }).filter((x) => x.total > 0);
+
+    // Possíveis compradores por nível de instrução THB (extra útil — quente/morno).
+    const porNivel = NIVEIS.map((n) => {
+      const arr = compradores.filter((p) => nivelInstrucao(p).key === n.key);
+      return { ...n, total: arr.length, cred: arr.filter((p) => p.credenciado).length };
+    }).filter((x) => x.total > 0).sort((a, b) => b.rank - a.rank);
+
     return {
-      linhas,
-      totais: {
-        total: tot, presentes, ausentes: tot - presentes,
-        comprador: compradores.length,
-        compPresentes: compradores.filter((p) => p.credenciado).length,
-        compAusentes: compradores.filter((p) => !p.credenciado).length,
-      },
+      total, cred, pend: total - cred, pct: total ? Math.round((cred / total) * 100) : 0,
+      comprador: compradores.length, compCred, compFalt: compradores.length - compCred,
+      porIngresso, porProduto, porNivel,
     };
   }, [lista]);
 
-  // Exporta um recorte da lista atual (presença × possível comprador) — para a equipe/Active.
+  const maxIng = Math.max(1, ...m.porIngresso.map((x) => x.total));
+  const maxProd = Math.max(1, ...m.porProduto.map((x) => x.total));
+
+  // Exporta um recorte da lista (CSV no mesmo formato do Excel, sem a imagem do QR).
   function exportarRecorte(nome, filtro) {
-    const arr = lista.filter(filtro);
+    const arr = (typeof filtro === 'function') ? lista.filter(filtro) : lista;
     if (!arr.length) { toast('Nenhum participante nesse recorte', ''); return; }
     const rows = linhasExport(arr, window.location.origin).map(({ 'QR (imagem)': _img, ...rest }) => rest);
     const cab = rows.length ? Object.keys(rows[0]) : [];
     baixarCSV(`${eventoId}-${nome}.csv`, cab, rows.map((r) => cab.map((k) => r[k])));
     toast('CSV gerado', 'success');
-  }
-
-  async function exportarCSV(filtro) {
-    try {
-      const d = await api.exportar(eventoId);
-      let lista = d.list || [];
-      if (filtro === 'cred') lista = lista.filter((p) => p.credenciado);
-      if (filtro === 'pend') lista = lista.filter((p) => !p.credenciado);
-      // Mesmo formato do Excel, sem a coluna de imagem do QR (CSV não renderiza).
-      const rows = linhasExport(lista, window.location.origin).map(({ 'QR (imagem)': _img, ...rest }) => rest);
-      const cab = rows.length ? Object.keys(rows[0]) : [];
-      const linhas = rows.map((r) => cab.map((k) => r[k]));
-      const sufixo = filtro === 'cred' ? 'credenciados' : filtro === 'pend' ? 'no-show' : 'todos';
-      baixarCSV(`${eventoId}-${sufixo}.csv`, cab, linhas);
-      toast('CSV gerado', 'success');
-    } catch { toast('Erro ao gerar CSV', 'danger'); }
   }
 
   async function exportarXLSX() {
@@ -126,105 +108,107 @@ export default function DashboardModal({ eventoId, eventoNome, lista, onClose })
     } catch { toast('Erro ao gerar Excel', 'danger'); }
   }
 
-  const maxTurma = Math.max(1, ...stats.porTurma.map((t) => t.total));
-  const maxHora = Math.max(1, ...stats.porHora.map((h) => h.v));
-
   return (
     <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal modal-lg" role="dialog" aria-modal="true">
         <div className="modal-head">
-          <h3>Painel · {eventoNome}</h3>
+          <h3>Dashboard · {eventoNome}</h3>
           <button className="icon-btn" onClick={onClose} title="Fechar"><IconClose /></button>
         </div>
         <div className="modal-body">
           <div className="tabs">
-            <button className={aba === 'resumo' ? 'active' : ''} onClick={() => setAba('resumo')}>Resumo</button>
-            <button className={aba === 'perfil' ? 'active' : ''} onClick={() => setAba('perfil')}>Perfil &amp; Presença</button>
+            <button className={aba === 'dashboard' ? 'active' : ''} onClick={() => setAba('dashboard')}>Dashboard</button>
+            <button className={aba === 'exportar' ? 'active' : ''} onClick={() => setAba('exportar')}>Exportar</button>
             <button className={aba === 'auditoria' ? 'active' : ''} onClick={() => setAba('auditoria')}>Auditoria</button>
           </div>
 
-          {aba === 'resumo' && (
+          {aba === 'dashboard' && (
             <>
+              {/* Panorama */}
               <div className="dash-cards">
-                <div className="dash-card"><span>Total</span><b>{stats.total}</b></div>
-                <div className="dash-card ok"><span>Credenciados</span><b>{stats.cred}</b></div>
-                <div className="dash-card warn"><span>Pendentes</span><b>{stats.pend}</b></div>
-                <div className="dash-card acc"><span>Progresso</span><b>{stats.pct}%</b></div>
+                <div className="dash-card"><span>Total</span><b>{m.total}</b></div>
+                <div className="dash-card ok"><span>Credenciados</span><b>{m.cred}</b></div>
+                <div className="dash-card warn"><span>Pendentes</span><b>{m.pend}</b></div>
+                <div className="dash-card acc"><span>Progresso</span><b>{m.pct}%</b></div>
               </div>
 
-              <div className="detail-section">Por tipo</div>
-              {stats.porTipo.map((x) => <Barra key={x.t} label={tipoLabel(x.t)} valor={x.cred} sub={x.total} max={x.total} />)}
-
-              <div className="detail-section">Por turma (top 10)</div>
-              {stats.porTurma.map((x) => <Barra key={x.k} label={x.k} valor={x.cred} sub={x.total} max={maxTurma} />)}
-
-              <div className="detail-section">Chegada por hora (credenciamentos)</div>
-              {stats.porHora.length === 0 && <div className="photo-empty">Ainda sem credenciamentos.</div>}
-              {stats.porHora.map((x) => <Barra key={x.k} label={x.k} valor={x.v} max={maxHora} />)}
-
-              <div className="detail-section">Exportar CSV</div>
-              <div className="dash-exports">
-                <button className="btn" onClick={() => exportarCSV('cred')}>Credenciados</button>
-                <button className="btn" onClick={() => exportarCSV('pend')}>No-show (pendentes)</button>
-                <button className="btn" onClick={() => exportarCSV('todos')}>Todos</button>
+              {/* Foco do time: possíveis compradores */}
+              <div className="detail-section">Possíveis compradores</div>
+              <div className="dash-cards dash-cards-3">
+                <div className="dash-card acc"><span>Total possíveis compradores</span><b>{m.comprador}</b></div>
+                <div className="dash-card ok"><span>Já credenciados (chegaram)</span><b>{m.compCred}</b></div>
+                <div className="dash-card danger"><span>Faltantes (ainda não chegaram)</span><b>{m.compFalt}</b></div>
               </div>
+              {m.comprador > 0 && (
+                <div className="dash-actions-inline">
+                  <button className="btn mini" onClick={() => exportarRecorte('possiveis-compradores-faltantes', (p) => ehPossivelComprador(p) && !p.credenciado)}>
+                    Exportar faltantes (CSV)
+                  </button>
+                  <button className="btn mini ghost" onClick={() => exportarRecorte('possiveis-compradores-todos', (p) => ehPossivelComprador(p))}>
+                    Exportar todos os possíveis compradores
+                  </button>
+                </div>
+              )}
 
-              <div className="detail-section">Excel para envio de e-mail (com link individual de cada aluno)</div>
-              <div className="dash-exports">
-                <button className="btn primary" onClick={exportarXLSX}>Baixar Excel (.xlsx)</button>
+              {/* Participantes por ingresso */}
+              <div className="detail-section">Participantes por ingresso</div>
+              {m.porIngresso.map((x) => (
+                <Barra key={x.ing} label={x.ing} valor={x.cred} sub={x.total} max={maxIng} tone="ok" />
+              ))}
+              <div className="dash-legenda">barra = credenciados · número = credenciados / total</div>
+
+              {/* Possíveis compradores por produto */}
+              <div className="detail-section">Possíveis compradores por produto</div>
+              {m.porProduto.length === 0 && <div className="photo-empty">Sem sinais de produto marcados.</div>}
+              {m.porProduto.map((x) => (
+                <Barra key={x.label} label={x.label} valor={x.cred} sub={x.total} max={maxProd} tone="acc" />
+              ))}
+              {m.porProduto.length > 0 && (
+                <div className="dash-legenda">barra = quantos já chegaram · número = credenciados / total de possíveis</div>
+              )}
+
+              {/* Extra: possíveis compradores por nível THB (quente → base) */}
+              <div className="detail-section">Possíveis compradores por nível (THB)</div>
+              <div className="perfil-tab-wrap">
+                <table className="perfil-tbl">
+                  <thead>
+                    <tr><th>Nível</th><th>Poss. compradores</th><th>Credenciados</th><th>Faltantes</th></tr>
+                  </thead>
+                  <tbody>
+                    {m.porNivel.map((x) => (
+                      <tr key={x.key}>
+                        <td><span className={`perfil-nivel nivel-${x.cls}`}>{x.label}</span></td>
+                        <td>{x.total}</td>
+                        <td className="ok-num">{x.cred}</td>
+                        <td className="warn-num">{x.total - x.cred || '—'}</td>
+                      </tr>
+                    ))}
+                    {m.porNivel.length === 0 && <tr><td colSpan={4} className="photo-empty">Nenhum possível comprador ainda.</td></tr>}
+                  </tbody>
+                </table>
               </div>
             </>
           )}
 
-          {aba === 'perfil' && (
+          {aba === 'exportar' && (
             <>
-              <div className="dash-cards">
-                <div className="dash-card ok"><span>Presentes</span><b>{perfil.totais.presentes}</b></div>
-                <div className="dash-card warn"><span>Ausentes</span><b>{perfil.totais.ausentes}</b></div>
-                <div className="dash-card acc"><span>Possíveis compradores</span><b>{perfil.totais.comprador}</b></div>
+              <div className="detail-section">Listas de credenciamento (CSV)</div>
+              <div className="dash-exports">
+                <button className="btn" onClick={() => exportarRecorte('todos', null)}>Todos</button>
+                <button className="btn" onClick={() => exportarRecorte('credenciados', (p) => p.credenciado)}>Credenciados</button>
+                <button className="btn" onClick={() => exportarRecorte('no-show', (p) => !p.credenciado)}>No-show (pendentes)</button>
               </div>
 
-              <div className="detail-section">Por nível de instrução (Time Holding Brasil)</div>
-              <div className="perfil-tab-wrap">
-                <table className="perfil-tbl">
-                  <thead>
-                    <tr>
-                      <th>Nível</th><th>Total</th><th>Presentes</th><th>Ausentes</th>
-                      <th title="Possíveis compradores presentes">P. compr. presentes</th>
-                      <th title="Possíveis compradores ausentes">P. compr. ausentes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {perfil.linhas.map((b) => (
-                      <tr key={b.key}>
-                        <td><span className={`perfil-nivel nivel-${b.cls}`}>{b.label}</span></td>
-                        <td>{b.total}</td>
-                        <td className="ok-num">{b.presentes}</td>
-                        <td className="warn-num">{b.ausentes}</td>
-                        <td>{b.compPres || '—'}</td>
-                        <td>{b.compAus || '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="detail-section">Possíveis compradores (CSV)</div>
+              <div className="dash-exports">
+                <button className="btn" onClick={() => exportarRecorte('possiveis-compradores-todos', (p) => ehPossivelComprador(p))}>Todos</button>
+                <button className="btn" onClick={() => exportarRecorte('possiveis-compradores-credenciados', (p) => ehPossivelComprador(p) && p.credenciado)}>Credenciados</button>
+                <button className="btn" onClick={() => exportarRecorte('possiveis-compradores-faltantes', (p) => ehPossivelComprador(p) && !p.credenciado)}>Faltantes</button>
               </div>
 
-              <div className="detail-section">Recortes que o Arthur pediu</div>
-              <div className="perfil-recortes">
-                <div className="perfil-recorte">
-                  <div className="pr-num">{perfil.totais.compPresentes}</div>
-                  <div className="pr-lbl">Presentes que são possíveis compradores</div>
-                  <button className="btn mini" onClick={() => exportarRecorte('presentes-possiveis-compradores', (p) => p.credenciado && ehPossivelComprador(p))}>Exportar CSV</button>
-                </div>
-                <div className="perfil-recorte">
-                  <div className="pr-num">{perfil.totais.compAusentes}</div>
-                  <div className="pr-lbl">Ausentes que são possíveis compradores</div>
-                  <button className="btn mini" onClick={() => exportarRecorte('ausentes-possiveis-compradores', (p) => !p.credenciado && ehPossivelComprador(p))}>Exportar CSV</button>
-                </div>
-              </div>
-
-              <div className="perfil-nota">
-                “Possível comprador” é marcado pela equipe no card do aluno (no check-in ou na ficha) e vale para a pessoa nos 3 dias.
+              <div className="detail-section">Excel para envio de e-mail (QR de cada aluno)</div>
+              <div className="dash-exports">
+                <button className="btn primary" onClick={exportarXLSX}>Baixar Excel (.xlsx)</button>
               </div>
             </>
           )}

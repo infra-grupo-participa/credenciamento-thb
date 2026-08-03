@@ -663,3 +663,12 @@ a.di-v{color:var(--primary-deep);text-decoration:none}
   .detail-qual-grid{grid-template-columns:1fr 1fr}
   .detail-act{min-width:0;font-size:13px}
 }
+
+/* ============ Dashboard novo (métricas de credenciamento) ============ */
+.dash-cards-3{grid-template-columns:repeat(3,1fr)}
+.dash-card.danger b{color:var(--danger)}
+.bar-fill.ok{background:linear-gradient(90deg,var(--success-2),var(--success))}
+.bar-fill.acc{background:linear-gradient(90deg,var(--primary-2),var(--primary-deep))}
+.dash-legenda{font-size:11px;color:var(--muted-2);margin:4px 0 2px;font-style:italic}
+.dash-actions-inline{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 2px}
+@media (max-width:560px){.dash-cards-3{grid-template-columns:1fr}}

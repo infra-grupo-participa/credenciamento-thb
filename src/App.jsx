@@ -453,6 +453,10 @@ function Credenciamento({ operador, onLogout }) {
               </button>
             )}
 
+            <button className="btn" onClick={() => setDashOpen(true)} title="Métricas do credenciamento">
+              <IconChart /> Dashboard
+            </button>
+
             <div className="mais-wrap" ref={maisRef}>
               <button className={`btn ghost ${maisOpen ? 'active' : ''}`} onClick={() => setMaisOpen((v) => !v)}
                 title="Mais ações" aria-haspopup="true" aria-expanded={maisOpen}>
@@ -467,9 +471,6 @@ function Credenciamento({ operador, onLogout }) {
                   )}
                   <button role="menuitem" onClick={() => { setMaisOpen(false); exportar(); }}>
                     <IconExport /> Exportar Excel
-                  </button>
-                  <button role="menuitem" onClick={() => { setMaisOpen(false); setDashOpen(true); }}>
-                    <IconChart /> Painel
                   </button>
                   <button role="menuitem" onClick={() => { setMaisOpen(false); setHistOpen(true); }}>
                     <IconReset /> Histórico
