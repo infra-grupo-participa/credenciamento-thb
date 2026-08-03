@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import { api } from '../api.js';
 import { tipoLabel, tipoCls } from '../tipos.js';
-import { nivelLabel, ingressoLabel, ehPossivelComprador } from '../perfil.js';
+import { nivelLabel, ingressoLabel, ehPossivelComprador, sinaisCracha } from '../perfil.js';
 import { useToast } from './Toasts.jsx';
 import { IconClose, IconCheck, IconSquare, IconEdit } from '../icons.jsx';
 
@@ -240,6 +240,17 @@ export default function DetailModal({ participantId, eventos = [], readOnly, onC
                       {!readOnly && <button className="btn ghost" onClick={imprimirCracha}>Imprimir crachá</button>}
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Sinais de perfil do crachá (possível Aurum/HM/renovações, sócio vai sozinho). */}
+              {sinaisCracha(p).length > 0 && (
+                <div className="detail-sinais">
+                  {sinaisCracha(p).map((s) => (
+                    <span key={s.label} className={`detail-sinal ${s.sim === true ? 'sim' : s.sim === false ? 'nao' : ''}`}>
+                      {s.label}: <b>{s.valor}</b>
+                    </span>
+                  ))}
                 </div>
               )}
 

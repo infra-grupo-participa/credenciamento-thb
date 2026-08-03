@@ -13,7 +13,7 @@ import SettingsModal from './components/SettingsModal.jsx';
 import { beepOk, beepErr } from './beep.js';
 import { enfileirar, flushFila, tamanhoFila } from './offline.js';
 import { tipoLabel, tipoCls } from './tipos.js';
-import { nivelLabel, ingressoLabel, ehPossivelComprador, faturamentoDe } from './perfil.js';
+import { nivelLabel, ingressoLabel, ehPossivelComprador, faturamentoDe, sinaisCracha } from './perfil.js';
 import { linhasExport, aplicarQrImagem } from './exportRows.js';
 import {
   IconImport, IconExport, IconPlus, IconSearch, IconCheck, IconSquare, IconEdit, IconLogout, IconReset,
@@ -350,6 +350,7 @@ function Credenciamento({ operador, onLogout }) {
       profissao: det.profissao || '', faturamento: faturamentoDe(det),
       cidade: [det.cidade, det.estado].filter(Boolean).join(' / '),
       telefone: det.telefone || '', email: det.email || '',
+      sinais: sinaisCracha(det), // possível Aurum/HM/renovações, sócio vai sozinho
     };
     if (grupo) info.grupo = grupo;
 

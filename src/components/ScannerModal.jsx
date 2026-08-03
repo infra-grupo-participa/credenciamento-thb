@@ -278,6 +278,15 @@ export default function ScannerModal({ onDetected, onManual, onUndo, onTrocarEve
                         {res.profissao && <div className="scan-linha"><span>Profissão</span><b>{res.profissao}</b></div>}
                         {res.faturamento && <div className="scan-linha"><span>Faturamento</span><b>{res.faturamento}</b></div>}
                         {res.cidade && <div className="scan-linha"><span>Cidade</span><b>{res.cidade}</b></div>}
+                        {res.sinais && res.sinais.length > 0 && (
+                          <div className="scan-sinais">
+                            {res.sinais.map((s) => (
+                              <span key={s.label} className={`scan-sinal ${s.sim === true ? 'sim' : s.sim === false ? 'nao' : ''}`}>
+                                {s.label}: <b>{s.valor}</b>
+                              </span>
+                            ))}
+                          </div>
+                        )}
                         {res.telefone && (
                           <div className="scan-linha"><span>WhatsApp</span>
                             <a href={`https://wa.me/${(res.telefone || '').replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer"
