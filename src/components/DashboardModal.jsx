@@ -26,13 +26,21 @@ function baixarCSV(nome, cabecalho, linhas) {
 }
 
 // Barra horizontal proporcional (credenciados sobre o total do grupo).
-function Barra({ label, valor, sub, max, tone }) {
-  const pct = max ? Math.round((valor / max) * 100) : 0;
+// Barra dupla: o TOTAL do grupo é a barra base (proporcional ao maior grupo),
+// e os CREDENCIADOS (quem já chegou) preenchem por cima. Assim a métrica mostra a
+// distribuição mesmo antes do evento (0 credenciados) e vai enchendo conforme chegam.
+function Barra({ label, cred, total, max, tone }) {
+  const pctTotal = max ? Math.round((total / max) * 100) : 0;
+  const pctCred = total ? Math.round((cred / total) * 100) : 0;
   return (
     <div className="bar-row">
       <div className="bar-label">{label}</div>
-      <div className="bar-track"><div className={`bar-fill ${tone || ''}`} style={{ width: `${pct}%` }} /></div>
-      <div className="bar-val">{valor}{sub != null ? `/${sub}` : ''}</div>
+      <div className="bar-track">
+        <div className="bar-base" style={{ width: `${pctTotal}%` }}>
+          <div className={`bar-fill ${tone || ''}`} style={{ width: `${pctCred}%` }} />
+        </div>
+      </div>
+      <div className="bar-val"><b>{total}</b>{cred > 0 ? <span className="bar-cred"> · {cred} ✓</span> : ''}</div>
     </div>
   );
 }
@@ -157,18 +165,18 @@ export default function DashboardModal({ eventoId, eventoNome, lista, onClose })
               {/* Participantes por ingresso */}
               <div className="detail-section">Participantes por ingresso</div>
               {m.porIngresso.map((x) => (
-                <Barra key={x.ing} label={x.ing} valor={x.cred} sub={x.total} max={maxIng} tone="ok" />
+                <Barra key={x.ing} label={x.ing} cred={x.cred} total={x.total} max={maxIng} tone="ok" />
               ))}
-              <div className="dash-legenda">barra = credenciados · número = credenciados / total</div>
+              <div className="dash-legenda">barra clara = total do ingresso · barra verde = já credenciados (✓)</div>
 
               {/* Possíveis compradores por produto */}
               <div className="detail-section">Possíveis compradores por produto</div>
               {m.porProduto.length === 0 && <div className="photo-empty">Sem sinais de produto marcados.</div>}
               {m.porProduto.map((x) => (
-                <Barra key={x.label} label={x.label} valor={x.cred} sub={x.total} max={maxProd} tone="acc" />
+                <Barra key={x.label} label={x.label} cred={x.cred} total={x.total} max={maxProd} tone="acc" />
               ))}
               {m.porProduto.length > 0 && (
-                <div className="dash-legenda">barra = quantos já chegaram · número = credenciados / total de possíveis</div>
+                <div className="dash-legenda">barra clara = possíveis compradores do produto · barra laranja = já credenciados (✓)</div>
               )}
 
               {/* Extra: possíveis compradores por nível THB (quente → base) */}
