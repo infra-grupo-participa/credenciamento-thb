@@ -692,7 +692,8 @@ a.di-v{color:var(--primary-deep);text-decoration:none}
 }
 
 /* Barra dupla do dashboard: base = total do grupo, preenchimento = credenciados */
-.bar-base{height:100%;background:rgba(29,29,27,.13);border-radius:8px;overflow:hidden;min-width:3px}
+/* Base da barra (total do grupo) tonalizada — verde para dar a diferenciação/noção. */
+.bar-base{height:100%;background:rgba(31,157,87,.28);border-radius:8px;overflow:hidden;min-width:3px}
 .bar-val{width:auto;min-width:56px;white-space:nowrap}
 .bar-val b{color:var(--text)}
 .bar-cred{color:var(--success);font-weight:700}
