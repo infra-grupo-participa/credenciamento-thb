@@ -63,8 +63,6 @@ export default function DetailModal({ participantId, eventos = [], readOnly, onC
   const [foto, setFoto] = useState(null);
   const [aba, setAba] = useState('resumo');
   const [hist, setHist] = useState([]);
-  const [fixos, setFixos] = useState([]);
-  const [configOpen, setConfigOpen] = useState(false);
   const [cam, setCam] = useState(false);
   const [salvandoCred, setSalvandoCred] = useState(false);
   const [qr, setQr] = useState('');
@@ -79,7 +77,6 @@ export default function DetailModal({ participantId, eventos = [], readOnly, onC
       if (d.temFoto) api.getFoto(participantId).then((r) => setFoto(r.foto || '')).catch(() => {});
     }).catch(() => setErro(true));
     api.historico(participantId).then((r) => setHist(r.historico || [])).catch(() => {});
-    api.getConfig('detalhe').then((r) => setFixos((r.v && r.v.fixos) || ['turma', 'instrucao', 'tamanhoCamisa', 'tipo'])).catch(() => {});
   }, [participantId]);
 
   const tel = p && (p.telefone || '').replace(/\D/g, '');
@@ -140,21 +137,13 @@ export default function DetailModal({ participantId, eventos = [], readOnly, onC
     catch { toast('Não consegui copiar', 'danger'); }
   }
 
-  async function toggleFixo(k) {
-    const novos = fixos.includes(k) ? fixos.filter((x) => x !== k) : [...fixos, k];
-    setFixos(novos);
-    try { await api.setConfig('detalhe', { fixos: novos }); } catch { /* silencioso */ }
-  }
 
   return (
     <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal modal-lg" role="dialog" aria-modal="true">
         <div className="modal-head">
           <h3>{p ? p.nome : 'Detalhes'}</h3>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {!readOnly && <button className="icon-btn" onClick={() => setConfigOpen((v) => !v)} title="Configurar campos">⚙</button>}
-            <button className="icon-btn" onClick={onClose} title="Fechar"><IconClose /></button>
-          </div>
+          <button className="icon-btn" onClick={onClose} title="Fechar"><IconClose /></button>
         </div>
 
         <div className="modal-body">
@@ -162,17 +151,8 @@ export default function DetailModal({ participantId, eventos = [], readOnly, onC
           {!erro && !p && <div className="center-screen" style={{ minHeight: 140 }}><div className="spinner" /></div>}
           {p && (
             <>
-              {configOpen && (
-                <div className="cfg-panel">
-                  <div className="cfg-title">Campos em destaque (vale para todos)</div>
-                  <div className="cfg-chips">
-                    {CAMPOS.map((c) => (
-                      <button key={c.k} className={`cfg-chip ${fixos.includes(c.k) ? 'on' : ''}`} onClick={() => toggleFixo(c.k)}>{c.label}</button>
-                    ))}
-                  </div>
-                </div>
-              )}
 
+              {/* ===== Cabeçalho: foto + identidade + status ===== */}
               <div className="detail-top">
                 <div className="detail-foto-box">
                   {foto ? <img className="detail-foto" src={foto} alt={p.nome} /> : <div className="detail-foto detail-foto-empty">Sem foto</div>}
@@ -183,41 +163,86 @@ export default function DetailModal({ participantId, eventos = [], readOnly, onC
                     </div>
                   )}
                 </div>
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className={`detail-status-pill ${p.credenciado ? 'ok' : 'pend'}`}>
+                    {p.credenciado ? <><IconCheck /> Credenciado</> : <><IconSquare /> Pendente</>}
+                  </div>
                   <div className="detail-badges">
                     <span className="detail-nivel">{nivelLabel(p)}</span>
                     {ingressoLabel(p) && <span className={`detail-ingresso ing-${ingressoLabel(p).toLowerCase()}`}>{ingressoLabel(p)}</span>}
                     <span className={`tbadge tbadge-${tipoCls(p.tipo)}`}>{tipoLabel(p.tipo)}</span>
-                    {p.credenciado ? <span className="tbadge tbadge-ok">Credenciado</span> : <span className="tbadge">Pendente</span>}
-                    {comprador && <span className="detail-comprador-selo">★ Possível comprador</span>}
                   </div>
                   {p.nomeCracha && <div className="detail-sub">Crachá: {p.nomeCracha}</div>}
-                  <div className="detail-top-actions">
-                    {!readOnly && onCredenciar && (
-                      <button className={`btn ${p.credenciado ? '' : 'primary'} detail-cred`} onClick={toggleCred} disabled={salvandoCred}>
-                        {p.credenciado ? <><IconSquare /> Desfazer credenciamento</> : <><IconCheck /> Credenciar agora</>}
-                      </button>
-                    )}
-                    {!readOnly && onMarcarComprador && (
-                      <button className={`btn ${comprador ? '' : 'ghost'} detail-comprador-btn`} onClick={toggleComprador}>
-                        {comprador ? '✓ É possível comprador' : '★ Marcar possível comprador'}
-                      </button>
-                    )}
-                  </div>
                 </div>
               </div>
 
               {cam && <CameraCapture onShot={salvarFoto} onCancel={() => setCam(false)} />}
 
-              {p.convidadoPor && (
-                <div className="detail-invite">
-                  <strong>Convidado(a) por:</strong>{' '}
-                  {onOpenByName
-                    ? <button className="link-btn" onClick={() => onOpenByName(p.convidadoPor)}>{p.convidadoPor}</button>
-                    : p.convidadoPor}
+              {/* ===== Ações principais ===== */}
+              {!readOnly && (onCredenciar || onMarcarComprador) && (
+                <div className="detail-actions-row">
+                  {onCredenciar && (
+                    <button className={`btn ${p.credenciado ? '' : 'primary'} detail-act`} onClick={toggleCred} disabled={salvandoCred}>
+                      {p.credenciado ? <><IconSquare /> Desfazer credenciamento</> : <><IconCheck /> Credenciar agora</>}
+                    </button>
+                  )}
+                  {onMarcarComprador && (
+                    <button className={`btn ${comprador ? 'comprador-on' : 'ghost'} detail-act`} onClick={toggleComprador}>
+                      {comprador ? '★ É possível comprador' : '☆ Marcar possível comprador'}
+                    </button>
+                  )}
                 </div>
               )}
 
+              {/* ===== Qualificação (o que o time avaliou no crachá) ===== */}
+              {(comprador || sinaisCracha(p).length > 0) && (
+                <section className="detail-sec">
+                  <div className="detail-sec-title">Qualificação</div>
+                  <div className="detail-qual-grid">
+                    <div className={`detail-qual ${comprador ? 'sim' : 'nao'}`}>
+                      <span className="dq-k">Possível comprador</span>
+                      <span className="dq-v">{comprador ? 'SIM' : 'não'}</span>
+                    </div>
+                    {sinaisCracha(p).map((s) => (
+                      <div key={s.label} className={`detail-qual ${s.sim === true ? 'sim' : s.sim === false ? 'nao' : ''}`}>
+                        <span className="dq-k">{s.label}</span>
+                        <span className="dq-v">{s.valor}</span>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* ===== Dados do participante ===== */}
+              <section className="detail-sec">
+                <div className="detail-sec-title">Dados do participante</div>
+                <div className="detail-info-grid">
+                  {p.telefone && (
+                    <div className="di"><span className="di-k">WhatsApp</span>
+                      <a className="di-v" href={`https://wa.me/${tel}`} target="_blank" rel="noopener noreferrer">{p.telefone}</a></div>
+                  )}
+                  <Di k="E-mail" v={p.email} />
+                  <Di k="Cidade / UF" v={[p.cidade, p.estado].filter(Boolean).join(' / ')} />
+                  <Di k="Turma" v={p.turma} />
+                  <Di k="Instrução" v={p.instrucao} />
+                  <Di k="Profissão" v={p.profissao} />
+                  <Di k="Faturamento" v={p.faturamento} />
+                  <Di k="Camisa" v={p.tamanhoCamisa} />
+                  <Di k="Documento" v={p.documento} />
+                  <Di k="Nível" v={p.nivel} />
+                </div>
+                {p.convidadoPor && (
+                  <div className="detail-invite-inline">
+                    <span className="di-k">Convidado por</span>{' '}
+                    {onOpenByName
+                      ? <button className="link-btn" onClick={() => onOpenByName(p.convidadoPor)}>{p.convidadoPor}</button>
+                      : <b>{p.convidadoPor}</b>}
+                  </div>
+                )}
+                {p.observacoes && <div className="detail-obs"><span className="di-k">Observações</span> {p.observacoes}</div>}
+              </section>
+
+              {/* ===== Representante (se houver) ===== */}
               {p.representante && (p.representante.nome || p.representante.email) && (
                 <div className="detail-rep">
                   <div className="detail-rep-tag">Participa por representante</div>
@@ -229,7 +254,14 @@ export default function DetailModal({ participantId, eventos = [], readOnly, onC
                 </div>
               )}
 
-              {qr && (
+              {/* ===== Detalhes extras + QR (recolhidos em abas) ===== */}
+              <div className="tabs">
+                <button className={aba === 'resumo' ? 'active' : ''} onClick={() => setAba('resumo')}>QR / Crachá</button>
+                <button className={aba === 'tudo' ? 'active' : ''} onClick={() => setAba('tudo')}>Todos os campos</button>
+                <button className={aba === 'hist' ? 'active' : ''} onClick={() => setAba('hist')}>Histórico {hist.length > 1 ? `(${hist.length})` : ''}</button>
+              </div>
+
+              {aba === 'resumo' && qr && (
                 <div className="qr-row">
                   <img className="qr-img" src={qr} alt="QR do crachá" />
                   <div className="qr-info">
@@ -240,46 +272,6 @@ export default function DetailModal({ participantId, eventos = [], readOnly, onC
                       {!readOnly && <button className="btn ghost" onClick={imprimirCracha}>Imprimir crachá</button>}
                     </div>
                   </div>
-                </div>
-              )}
-
-              {/* Sinais de perfil do crachá (possível Aurum/HM/renovações, sócio vai sozinho). */}
-              {sinaisCracha(p).length > 0 && (
-                <div className="detail-sinais">
-                  {sinaisCracha(p).map((s) => (
-                    <span key={s.label} className={`detail-sinal ${s.sim === true ? 'sim' : s.sim === false ? 'nao' : ''}`}>
-                      {s.label}: <b>{s.valor}</b>
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* Destaques (campos fixados) */}
-              {fixos.length > 0 && (
-                <div className="destaques">
-                  {fixos.map((k) => { const v = val(p, k); if (!v) return null; const c = CAMPOS.find((x) => x.k === k);
-                    return <div key={k} className="destaque"><span className="d-k">{c ? c.label : k}</span><span className="d-v">{v}</span></div>; })}
-                </div>
-              )}
-
-              <div className="tabs">
-                <button className={aba === 'resumo' ? 'active' : ''} onClick={() => setAba('resumo')}>Resumo</button>
-                <button className={aba === 'tudo' ? 'active' : ''} onClick={() => setAba('tudo')}>Tudo</button>
-                <button className={aba === 'hist' ? 'active' : ''} onClick={() => setAba('hist')}>Histórico {hist.length > 1 ? `(${hist.length})` : ''}</button>
-              </div>
-
-              {aba === 'resumo' && (
-                <div className="kvs">
-                  <Kv rotulo="E-mail" valor={p.email} />
-                  {p.telefone && <div className="kv"><span className="kv-k">Telefone</span><span className="kv-v"><a href={`https://wa.me/${tel}`} target="_blank" rel="noopener noreferrer">{p.telefone}</a></span></div>}
-                  <Kv rotulo="Cidade/UF" valor={[p.cidade, p.estado].filter(Boolean).join(' / ')} />
-                  <Kv rotulo="Turma" valor={p.turma} />
-                  <Kv rotulo="Instrução" valor={p.instrucao} />
-                  <Kv rotulo="Nível" valor={p.nivel} />
-                  <Kv rotulo="Profissão" valor={p.profissao} />
-                  <Kv rotulo="Camisa" valor={p.tamanhoCamisa} />
-                  <Kv rotulo="Documento" valor={p.documento} />
-                  {p.observacoes && <Kv rotulo="Observações" valor={p.observacoes} />}
                 </div>
               )}
 
@@ -323,4 +315,11 @@ export default function DetailModal({ participantId, eventos = [], readOnly, onC
 function Kv({ rotulo, valor }) {
   if (valor == null || String(valor).trim() === '') return null;
   return <div className="kv"><span className="kv-k">{rotulo}</span><span className="kv-v">{String(valor)}</span></div>;
+}
+
+// Item do grid de "Dados do participante": rótulo em cima, valor embaixo.
+// Não renderiza se vazio (o grid se reorganiza sozinho sem buracos).
+function Di({ k, v }) {
+  if (v == null || String(v).trim() === '') return null;
+  return <div className="di"><span className="di-k">{k}</span><span className="di-v">{String(v)}</span></div>;
 }

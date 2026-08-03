@@ -618,3 +618,48 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 .scan-sinal b,.detail-sinal b{font-weight:800}
 .scan-sinal.sim,.detail-sinal.sim{background:rgba(31,157,87,.13);color:var(--success);border-color:rgba(31,157,87,.25)}
 .scan-sinal.nao,.detail-sinal.nao{background:rgba(29,29,27,.05);color:var(--muted-2)}
+
+/* ============ Ficha do aluno (DetailModal) reorganizada ============ */
+/* Pílula de status no topo do cabeçalho (destaque imediato). */
+.detail-status-pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;padding:4px 12px;border-radius:999px;margin-bottom:8px}
+.detail-status-pill svg{width:15px;height:15px}
+.detail-status-pill.ok{background:rgba(31,157,87,.14);color:var(--success)}
+.detail-status-pill.pend{background:rgba(245,158,11,.14);color:var(--warning)}
+
+/* Linha de ações principais (credenciar + comprador), lado a lado e cheias. */
+.detail-actions-row{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 16px}
+.detail-act{flex:1;min-width:180px;justify-content:center}
+.btn.comprador-on{background:rgba(31,157,87,.14);color:var(--success);border:1px solid rgba(31,157,87,.4)}
+
+/* Seções com título — dão a hierarquia que faltava. */
+.detail-sec{margin:0 0 16px}
+.detail-sec-title{font-size:11px;text-transform:uppercase;letter-spacing:.9px;color:var(--muted);font-weight:800;
+  margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+
+/* Grid de qualificação (possível comprador + sinais do crachá) — cards curtos. */
+.detail-qual-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.detail-qual{display:flex;flex-direction:column;gap:2px;padding:8px 11px;border-radius:10px;background:#f7f8fa;border:1px solid var(--line)}
+.detail-qual .dq-k{font-size:11px;color:var(--muted);font-weight:600;line-height:1.2}
+.detail-qual .dq-v{font-size:14px;font-weight:800}
+.detail-qual.sim{background:rgba(31,157,87,.10);border-color:rgba(31,157,87,.30)}
+.detail-qual.sim .dq-v{color:var(--success)}
+.detail-qual.nao{background:#f7f8fa}
+.detail-qual.nao .dq-v{color:var(--muted-2)}
+
+/* Grid de dados do participante — 2 colunas, rótulo em cima / valor embaixo. */
+.detail-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px 20px}
+.di{display:flex;flex-direction:column;gap:1px;padding:7px 0;border-bottom:1px dashed rgba(29,29,27,.07);min-width:0}
+.di-k{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+.di-v{font-size:14px;color:var(--text);font-weight:600;word-break:break-word}
+a.di-v{color:var(--primary-deep);text-decoration:none}
+.detail-invite-inline{margin-top:10px;font-size:13.5px}
+.detail-invite-inline .di-k{display:inline;text-transform:none;letter-spacing:0;font-size:12.5px;margin-right:4px}
+.detail-obs{margin-top:10px;font-size:13px;color:var(--text);line-height:1.5}
+.detail-obs .di-k{display:block;margin-bottom:2px}
+
+/* Mobile: uma coluna, sem apertar. */
+@media (max-width:560px){
+  .detail-info-grid{grid-template-columns:1fr;gap:0}
+  .detail-qual-grid{grid-template-columns:1fr 1fr}
+  .detail-act{min-width:0;font-size:13px}
+}
