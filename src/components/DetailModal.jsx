@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import { api } from '../api.js';
 import { tipoLabel, tipoCls } from '../tipos.js';
+import { nivelLabel, ingressoLabel, ehPossivelComprador } from '../perfil.js';
 import { useToast } from './Toasts.jsx';
 import { IconClose, IconCheck, IconSquare, IconEdit } from '../icons.jsx';
 
@@ -54,9 +55,10 @@ function CameraCapture({ onShot, onCancel }) {
   );
 }
 
-export default function DetailModal({ participantId, eventos = [], readOnly, onClose, onEdit, onCredenciar, onOpenByName }) {
+export default function DetailModal({ participantId, eventos = [], readOnly, onClose, onEdit, onCredenciar, onMarcarComprador, onOpenByName }) {
   const toast = useToast();
   const [p, setP] = useState(null);
+  const [comprador, setComprador] = useState(false); // selo "possível comprador" (otimista)
   const [erro, setErro] = useState(false);
   const [foto, setFoto] = useState(null);
   const [aba, setAba] = useState('resumo');
@@ -72,6 +74,7 @@ export default function DetailModal({ participantId, eventos = [], readOnly, onC
     setP(null); setErro(false); setFoto(null); setHist([]); setAba('resumo'); setQr('');
     api.detalhe(participantId).then((d) => {
       setP(d);
+      setComprador(ehPossivelComprador(d));
       QRCode.toDataURL(String(d.pessoa_token || d.id), { margin: 1, width: 240 }).then(setQr).catch(() => setQr(''));
       if (d.temFoto) api.getFoto(participantId).then((r) => setFoto(r.foto || '')).catch(() => {});
     }).catch(() => setErro(true));
@@ -90,6 +93,14 @@ export default function DetailModal({ participantId, eventos = [], readOnly, onC
     try { await onCredenciar(p.id, novo, p.nome); setP({ ...p, credenciado: novo }); }
     catch { /* toast no App */ }
     finally { setSalvandoCred(false); }
+  }
+
+  async function toggleComprador() {
+    if (!p || !onMarcarComprador) return;
+    const novo = !comprador;
+    setComprador(novo); // otimista
+    try { await onMarcarComprador(p.id, novo, p.nome); }
+    catch { setComprador(!novo); }
   }
 
   async function salvarFoto(dataUrl) {
@@ -174,16 +185,25 @@ export default function DetailModal({ participantId, eventos = [], readOnly, onC
                 </div>
                 <div style={{ flex: 1 }}>
                   <div className="detail-badges">
+                    <span className="detail-nivel">{nivelLabel(p)}</span>
+                    {ingressoLabel(p) && <span className={`detail-ingresso ing-${ingressoLabel(p).toLowerCase()}`}>{ingressoLabel(p)}</span>}
                     <span className={`tbadge tbadge-${tipoCls(p.tipo)}`}>{tipoLabel(p.tipo)}</span>
-                    {p.grupoDiamante && <span className="tbadge tbadge-diamante">{p.grupoDiamante}</span>}
                     {p.credenciado ? <span className="tbadge tbadge-ok">Credenciado</span> : <span className="tbadge">Pendente</span>}
+                    {comprador && <span className="detail-comprador-selo">★ Possível comprador</span>}
                   </div>
                   {p.nomeCracha && <div className="detail-sub">Crachá: {p.nomeCracha}</div>}
-                  {!readOnly && onCredenciar && (
-                    <button className={`btn ${p.credenciado ? '' : 'primary'} detail-cred`} onClick={toggleCred} disabled={salvandoCred}>
-                      {p.credenciado ? <><IconSquare /> Desfazer credenciamento</> : <><IconCheck /> Credenciar agora</>}
-                    </button>
-                  )}
+                  <div className="detail-top-actions">
+                    {!readOnly && onCredenciar && (
+                      <button className={`btn ${p.credenciado ? '' : 'primary'} detail-cred`} onClick={toggleCred} disabled={salvandoCred}>
+                        {p.credenciado ? <><IconSquare /> Desfazer credenciamento</> : <><IconCheck /> Credenciar agora</>}
+                      </button>
+                    )}
+                    {!readOnly && onMarcarComprador && (
+                      <button className={`btn ${comprador ? '' : 'ghost'} detail-comprador-btn`} onClick={toggleComprador}>
+                        {comprador ? '✓ É possível comprador' : '★ Marcar possível comprador'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 

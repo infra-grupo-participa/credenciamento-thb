@@ -95,6 +95,8 @@ export const api = {
   atualizar: (id, p) => request(`/participantes/${encodeURIComponent(id)}`, { method: 'PUT', body: p }),
   credenciar: (id, credenciado) =>
     request(`/participantes/${encodeURIComponent(id)}/credenciar`, { method: 'PATCH', body: { credenciado } }),
+  marcarComprador: (id, valor) =>
+    request(`/participantes/${encodeURIComponent(id)}/comprador`, { method: 'PATCH', body: { valor } }),
   excluir: (id) => request(`/participantes/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 
   getFoto: (id) => request(`/participantes/${encodeURIComponent(id)}/foto`),

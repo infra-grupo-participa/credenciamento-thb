@@ -251,6 +251,21 @@ api.patch('/participantes/:id/credenciar', auth, async (req, res) => {
   }
 });
 
+// Marca / desmarca "possível comprador" — sinal de perfil que a equipe alimenta
+// à mão. Propaga para a mesma pessoa nos 3 dias (por pessoa_token) no db.
+api.patch('/participantes/:id/comprador', auth, async (req, res) => {
+  try {
+    const valor = !!req.body.valor;
+    const r = await db.repo.marcarComprador(req.params.id, valor);
+    if (!r) return res.status(404).json({ error: 'nao_encontrado' });
+    await db.audit(req.params.id, r.nome, valor ? 'marcar_comprador' : 'desmarcar_comprador', req.operador, null, r.evento_id);
+    res.json({ ok: true, ...r });
+  } catch (e) {
+    console.error(e.message);
+    res.status(500).json({ error: 'comprador_failed' });
+  }
+});
+
 // Exclui participante.
 api.delete('/participantes/:id', auth, async (req, res) => {
   try {

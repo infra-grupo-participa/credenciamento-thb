@@ -541,3 +541,71 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 .detail-rep-body{font-size:13px;color:#2f2547;line-height:1.5}
 .detail-rep-mail{color:#5b3ea8;font-weight:600}
 .detail-rep-note{color:#8b7bb0;font-weight:500;font-size:12px}
+
+/* ============ Perfil: nível THB + possível comprador (Arthur) ============ */
+/* Cores por nível de instrução dentro do THB (base → topo). */
+.detail-nivel,.perfil-nivel,.scan-nivel{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.2px;
+  background:rgba(29,29,27,.06);color:#525866;border:1px solid transparent}
+.nivel-thb,.detail-nivel{background:rgba(239,124,0,.12);color:var(--primary-deep)}
+.nivel-aurum{background:linear-gradient(135deg,#fff0c2,#ffd970);color:#8a5200;border-color:#f0c64a}
+.nivel-platina{background:rgba(120,144,156,.16);color:#455a64}
+.nivel-diamante{background:rgba(37,99,235,.14);color:#1d4ed8}
+.nivel-diamante-vermelho{background:rgba(220,38,38,.14);color:#b91c1c}
+.nivel-exaluno{background:rgba(29,29,27,.05);color:var(--muted-2)}
+
+/* Ingresso comprado (DIAMOND/VIP/PLATEIA) — separado do nível. */
+.detail-ingresso,.scan-ingresso{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:800;border:1px solid transparent}
+.ing-diamond{background:rgba(37,99,235,.12);color:#1d4ed8}
+.ing-vip{background:rgba(147,51,234,.12);color:#7c3aed}
+.ing-plateia{background:rgba(29,29,27,.06);color:#525866}
+
+/* Selo "possível comprador". */
+.detail-comprador-selo,.scan-comprador-selo{display:inline-flex;align-items:center;gap:5px;background:rgba(31,157,87,.14);color:var(--success);
+  border:1px solid rgba(31,157,87,.35);border-radius:999px;padding:3px 11px;font-size:11.5px;font-weight:800}
+.scan-comprador-selo{font-size:14px;padding:5px 14px;align-self:center}
+.detail-top-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.detail-comprador-btn{margin-top:0}
+
+/* ---- Card do scanner em modo painel (fica até o próximo QR) ---- */
+.scan-card{display:flex;flex-direction:column;gap:10px;width:100%;align-items:center}
+.scan-card-head{display:flex;gap:12px;align-items:center;width:100%;justify-content:center;text-align:left}
+.scan-card-id{min-width:0}
+.scan-badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:5px}
+.scan-perfil{display:flex;flex-direction:column;gap:6px;width:100%;max-width:340px}
+.scan-linha{display:flex;justify-content:space-between;gap:12px;font-size:13.5px;border-bottom:1px dashed var(--line);padding-bottom:4px}
+.scan-linha span{color:var(--muted);font-weight:600;flex-shrink:0}
+.scan-linha b,.scan-linha a{color:var(--text);font-weight:700;text-align:right;overflow-wrap:anywhere}
+.scan-linha a{color:var(--primary-deep);text-decoration:none}
+.scan-card-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;width:100%;margin-top:2px}
+.scan-act{flex:1;min-width:150px;justify-content:center}
+.scan-result.is-comprador{box-shadow:inset 0 0 0 2px rgba(31,157,87,.35)}
+.scan-hint-min{display:block;margin-top:8px;font-size:12px;color:var(--muted-2)}
+
+/* No celular o card cobre a câmera; com mais conteúdo, precisa rolar. */
+@media (max-width:760px){
+  .scan-result{max-height:78vh;overflow-y:auto;justify-content:flex-start}
+  .scan-card-head{flex-direction:row}
+  .scan-foto{width:60px;height:60px}
+  .scan-nome{font-size:18px}
+  .scan-perfil{max-width:100%}
+  .scan-act{font-size:13px;min-width:130px}
+}
+
+/* ---- Aba Perfil & Presença do painel ---- */
+.perfil-tab-wrap{overflow-x:auto}
+.perfil-tbl{width:100%;border-collapse:collapse;font-size:13px}
+.perfil-tbl th{background:#f7f8fa;color:var(--muted);text-align:center;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:9px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+.perfil-tbl th:first-child{text-align:left}
+.perfil-tbl td{padding:9px 8px;text-align:center;border-bottom:1px solid var(--line)}
+.perfil-tbl td:first-child{text-align:left}
+.perfil-tbl .ok-num{color:var(--success);font-weight:700}
+.perfil-tbl .warn-num{color:var(--warning);font-weight:700}
+.perfil-recortes{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.perfil-recorte{background:#f7f8fa;border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center;display:flex;flex-direction:column;gap:8px;align-items:center}
+.perfil-recorte .pr-num{font-size:30px;font-weight:800;color:var(--primary-deep)}
+.perfil-recorte .pr-lbl{font-size:12.5px;color:var(--muted);font-weight:600;line-height:1.35}
+.btn.mini{padding:5px 12px;font-size:12px}
+.perfil-nota{margin-top:14px;font-size:12px;color:var(--muted-2);font-style:italic;line-height:1.4}
+@media (max-width:560px){.perfil-recortes{grid-template-columns:1fr}}
+.scan-continuar{background:none;border:none;color:var(--muted);font-size:12.5px;font-weight:700;cursor:pointer;padding:6px 10px;margin-top:2px}
+.scan-continuar:hover{color:var(--primary-deep)}

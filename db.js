@@ -84,7 +84,7 @@ const TABELA = 'participantes';
 const CODE_RE = /^[A-Za-z0-9_.:@-]{1,64}$/;
 const codeSeguro = (c) => (CODE_RE.test(String(c || '')) ? String(c) : null);
 // Colunas leves da listagem (sem foto nem dados_extra).
-const LIGHT = 'id,evento_id,nome,nomeCracha,email,telefone,documento,turma,profissao,instrucao,tipo,grupoDiamante,convidadoPor,tamanhoCamisa,grupo,pessoa_token,recebeuCracha,credenciado,dataCredenciamento,temFoto,dados_extra,representante,updated_at';
+const LIGHT = 'id,evento_id,nome,nomeCracha,email,telefone,documento,cidade,estado,turma,profissao,instrucao,faturamento,tipo,grupoDiamante,convidadoPor,tamanhoCamisa,grupo,pessoa_token,recebeuCracha,credenciado,dataCredenciamento,temFoto,dados_extra,representante,updated_at';
 // Colunas do detalhe (tudo exceto a foto, que é carregada à parte).
 const DETALHE = 'id,evento_id,nome,nomeCracha,email,telefone,documento,cidade,estado,turma,profissao,instrucao,nivel,faturamento,tamanhoCamisa,grupo,tipo,grupoDiamante,convidadoPor,convidadoPorId,observacoes,dataChegada,dataRetorno,dataCredenciamento,recebeuCracha,credenciado,pessoa_token,dados_extra,representante,temFoto,criado_em,updated_at';
 
@@ -248,6 +248,34 @@ const repo = {
     return data[0] ? shape(data[0]) : null;
   },
 
+  // Marca/desmarca "possível comprador" — sinal de perfil que a equipe alimenta
+  // à mão (não é derivado). Fica em dados_extra.possivel_comprador (jsonb, sem
+  // migração de schema) e é PRESERVADO no re-import (ver campos protegidos).
+  // Escopo: a MESMA PESSOA nos 3 dias — propaga por pessoa_token, então marcar no
+  // check-in de qualquer dia reflete nos demais (análise de perfil é da pessoa,
+  // não do dia). Devolve os registros afetados (para o cliente atualizar a lista).
+  async marcarComprador(id, valor) {
+    const alvo = unwrap(await sb().from(TABELA).select('id,nome,evento_id,pessoa_token,dados_extra').eq('id', id));
+    if (!alvo.length) return null;
+    const { pessoa_token: token, nome, evento_id } = alvo[0];
+    const patch = { updated_at: new Date().toISOString() };
+    // Guarda a flag dentro de dados_extra sem tocar nas demais chaves: como o
+    // supabase-js não faz merge de jsonb, lemos e reescrevemos por registro.
+    // Sem pessoa_token (linha legada), afeta só este id — mas SEMPRE com o
+    // dados_extra real em mãos, para não apagar 'lote' e demais chaves.
+    const alvos = token
+      ? unwrap(await sb().from(TABELA).select('id,dados_extra').eq('pessoa_token', token))
+      : alvo.map((r) => ({ id: r.id, dados_extra: r.dados_extra }));
+    const ids = [];
+    for (const r of alvos) {
+      const de = { ...(r.dados_extra && typeof r.dados_extra === 'object' ? r.dados_extra : {}) };
+      if (valor) de.possivel_comprador = true; else delete de.possivel_comprador;
+      unwrap(await sb().from(TABELA).update({ ...patch, dados_extra: de }).eq('id', r.id));
+      ids.push(r.id);
+    }
+    return { nome, evento_id, valor: !!valor, ids };
+  },
+
   async excluir(id) {
     const data = unwrap(await sb().from(TABELA).delete().eq('id', id).select('id'));
     return data.length > 0;
@@ -319,6 +347,8 @@ const repo = {
   //  - foto/temFoto: foto tirada na hora
   //  - representante: opt-in manual feito na UI
   //  - dados_extra.lote: marcação de disparo (Active Campaign), invisível na planilha
+  //  - dados_extra.possivel_comprador: sinal de perfil marcado pela equipe no evento
+  // (o merge em aAtualizar dá precedência ao dados_extra do banco → tudo isso sobrevive)
 
   // Prepara as linhas do import: aplica id determinístico por pessoa (dedup do
   // próprio arquivo incluído) e retorna também a chave natural de cada uma.

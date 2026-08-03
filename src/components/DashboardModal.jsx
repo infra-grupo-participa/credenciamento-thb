@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api.js';
 import { tipoLabel } from '../tipos.js';
+import { NIVEIS, nivelInstrucao, ehPossivelComprador } from '../perfil.js';
 import { linhasExport, aplicarQrImagem } from '../exportRows.js';
 import { useToast } from './Toasts.jsx';
 import { IconClose } from '../icons.jsx';
@@ -56,6 +57,45 @@ export default function DashboardModal({ eventoId, eventoNome, lista, onClose })
     return { total, cred, pend: total - cred, pct: total ? Math.round((cred / total) * 100) : 0, porTipo, porTurma, porHora };
   }, [lista]);
 
+  // Perfil & presença: por NÍVEL DE INSTRUÇÃO THB (eixo que o Arthur pediu),
+  // cruzando presença (credenciado) com "possível comprador" (marcado pela equipe).
+  const perfil = useMemo(() => {
+    const base = {};
+    NIVEIS.forEach((n) => { base[n.key] = { ...n, total: 0, presentes: 0, ausentes: 0, compProx: 0, compPres: 0, compAus: 0 }; });
+    lista.forEach((p) => {
+      const n = nivelInstrucao(p);
+      const b = base[n.key] || base.thb;
+      const comp = ehPossivelComprador(p);
+      b.total++;
+      if (p.credenciado) { b.presentes++; if (comp) b.compPres++; }
+      else { b.ausentes++; if (comp) b.compAus++; }
+      if (comp) b.compProx++;
+    });
+    const linhas = NIVEIS.map((n) => base[n.key]).filter((b) => b.total > 0).sort((a, b) => b.rank - a.rank);
+    const tot = lista.length;
+    const presentes = lista.filter((p) => p.credenciado).length;
+    const compradores = lista.filter(ehPossivelComprador);
+    return {
+      linhas,
+      totais: {
+        total: tot, presentes, ausentes: tot - presentes,
+        comprador: compradores.length,
+        compPresentes: compradores.filter((p) => p.credenciado).length,
+        compAusentes: compradores.filter((p) => !p.credenciado).length,
+      },
+    };
+  }, [lista]);
+
+  // Exporta um recorte da lista atual (presença × possível comprador) — para a equipe/Active.
+  function exportarRecorte(nome, filtro) {
+    const arr = lista.filter(filtro);
+    if (!arr.length) { toast('Nenhum participante nesse recorte', ''); return; }
+    const rows = linhasExport(arr, window.location.origin).map(({ 'QR (imagem)': _img, ...rest }) => rest);
+    const cab = rows.length ? Object.keys(rows[0]) : [];
+    baixarCSV(`${eventoId}-${nome}.csv`, cab, rows.map((r) => cab.map((k) => r[k])));
+    toast('CSV gerado', 'success');
+  }
+
   async function exportarCSV(filtro) {
     try {
       const d = await api.exportar(eventoId);
@@ -99,6 +139,7 @@ export default function DashboardModal({ eventoId, eventoNome, lista, onClose })
         <div className="modal-body">
           <div className="tabs">
             <button className={aba === 'resumo' ? 'active' : ''} onClick={() => setAba('resumo')}>Resumo</button>
+            <button className={aba === 'perfil' ? 'active' : ''} onClick={() => setAba('perfil')}>Perfil &amp; Presença</button>
             <button className={aba === 'auditoria' ? 'active' : ''} onClick={() => setAba('auditoria')}>Auditoria</button>
           </div>
 
@@ -131,6 +172,59 @@ export default function DashboardModal({ eventoId, eventoNome, lista, onClose })
               <div className="detail-section">Excel para envio de e-mail (com link individual de cada aluno)</div>
               <div className="dash-exports">
                 <button className="btn primary" onClick={exportarXLSX}>Baixar Excel (.xlsx)</button>
+              </div>
+            </>
+          )}
+
+          {aba === 'perfil' && (
+            <>
+              <div className="dash-cards">
+                <div className="dash-card ok"><span>Presentes</span><b>{perfil.totais.presentes}</b></div>
+                <div className="dash-card warn"><span>Ausentes</span><b>{perfil.totais.ausentes}</b></div>
+                <div className="dash-card acc"><span>Possíveis compradores</span><b>{perfil.totais.comprador}</b></div>
+              </div>
+
+              <div className="detail-section">Por nível de instrução (Time Holding Brasil)</div>
+              <div className="perfil-tab-wrap">
+                <table className="perfil-tbl">
+                  <thead>
+                    <tr>
+                      <th>Nível</th><th>Total</th><th>Presentes</th><th>Ausentes</th>
+                      <th title="Possíveis compradores presentes">P. compr. presentes</th>
+                      <th title="Possíveis compradores ausentes">P. compr. ausentes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {perfil.linhas.map((b) => (
+                      <tr key={b.key}>
+                        <td><span className={`perfil-nivel nivel-${b.cls}`}>{b.label}</span></td>
+                        <td>{b.total}</td>
+                        <td className="ok-num">{b.presentes}</td>
+                        <td className="warn-num">{b.ausentes}</td>
+                        <td>{b.compPres || '—'}</td>
+                        <td>{b.compAus || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="detail-section">Recortes que o Arthur pediu</div>
+              <div className="perfil-recortes">
+                <div className="perfil-recorte">
+                  <div className="pr-num">{perfil.totais.compPresentes}</div>
+                  <div className="pr-lbl">Presentes que são possíveis compradores</div>
+                  <button className="btn mini" onClick={() => exportarRecorte('presentes-possiveis-compradores', (p) => p.credenciado && ehPossivelComprador(p))}>Exportar CSV</button>
+                </div>
+                <div className="perfil-recorte">
+                  <div className="pr-num">{perfil.totais.compAusentes}</div>
+                  <div className="pr-lbl">Ausentes que são possíveis compradores</div>
+                  <button className="btn mini" onClick={() => exportarRecorte('ausentes-possiveis-compradores', (p) => !p.credenciado && ehPossivelComprador(p))}>Exportar CSV</button>
+                </div>
+              </div>
+
+              <div className="perfil-nota">
+                “Possível comprador” é marcado pela equipe no card do aluno (no check-in ou na ficha) e vale para a pessoa nos 3 dias.
               </div>
             </>
           )}

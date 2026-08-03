@@ -16,11 +16,10 @@ const STATUS = {
 
 const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
-// Tempo que o cartão de OK/duplicado fica na tela antes de voltar para "pronto".
-// (Se a próxima pessoa for lida antes disso, o card troca na hora — não atrasa a fila.)
-// No celular o card cobre a câmera, então damos um tempo confortável de leitura
-// e também dá para tocar no card para continuar antes disso.
-const AUTO_DISMISS_MS = 2600;
+// O card do último lido FICA na tela (modo painel): as informações da pessoa
+// permanecem visíveis até a PRÓXIMA leitura, para a equipe analisar o perfil com
+// calma (nível THB, ingresso, possível comprador, contato). Só troca quando bate
+// outro QR ou quando o operador toca em "continuar lendo".
 // Cooldown entre uma pessoa e a próxima. Curto para a fila andar rápido; a proteção
 // contra ler o MESMO QR duas vezes vem da dedup-por-presença (GAP_MS), não daqui.
 const BUSY_LOCK_MS = 550;
@@ -34,15 +33,15 @@ const MAX_SCAN_W = 640;
 
 // Scanner em modo quiosque: leitura CONTÍNUA de QR (um após o outro, sem reabrir)
 // + busca manual rápida (nome/CPF) para quando o QR não lê.
-export default function ScannerModal({ onDetected, onManual, onUndo, onTrocarEvento, onQuickAdd, lista = [], onClose, eventoNome }) {
+export default function ScannerModal({ onDetected, onManual, onUndo, onTrocarEvento, onQuickAdd, onMarcarComprador, lista = [], onClose, eventoNome }) {
   const videoRef = useRef(null);
   const rafRef = useRef(0);
   const last = useRef(null);          // { code, at } — controle de presença do QR em quadro
   const busy = useRef(false);
-  const dismissRef = useRef(0);
   const buscaRef = useRef(null);
   const [erro, setErro] = useState('');
   const [res, setRes] = useState(null);
+  const [compradorLocal, setCompradorLocal] = useState(false); // selo comprador do card atual (otimista)
   const [pronto, setPronto] = useState(true);   // false enquanto processa uma leitura
   const [contador, setContador] = useState(0);  // credenciados nesta sessão de scanner
   const [recentes, setRecentes] = useState([]); // últimos credenciados da sessão (p/ desfazer)
@@ -85,10 +84,12 @@ export default function ScannerModal({ onDetected, onManual, onUndo, onTrocarEve
     return norm(p.nome).includes(norm(qq)) || norm(p.email).includes(norm(qq));
   }).slice(0, 8);
 
-  // Mostra o resultado e agenda a volta automática para "pronto" (sucesso/duplicado).
-  // Erros que pedem ação (QR não reconhecido) permanecem até a próxima leitura.
+  // Mostra o resultado e o MANTÉM na tela até a próxima leitura (modo painel).
+  // Nada de auto-dismiss: as infos da pessoa ficam visíveis para a equipe analisar;
+  // o card só some quando bate outro QR ou quando tocam em "continuar lendo".
   function mostrarResultado(r) {
     setRes(r);
+    setCompradorLocal(r ? !!r.comprador : false);
     if (r && r.status === 'ok') {
       setContador((c) => c + 1);
       if (r.id) {
@@ -96,10 +97,15 @@ export default function ScannerModal({ onDetected, onManual, onUndo, onTrocarEve
         setRecentes((l) => [{ id: r.id, nome: r.nome, hora }, ...l.filter((x) => x.id !== r.id)].slice(0, 4));
       }
     }
-    clearTimeout(dismissRef.current);
-    if (r && (r.status === 'ok' || r.status === 'duplicado')) {
-      dismissRef.current = setTimeout(() => setRes(null), AUTO_DISMISS_MS);
-    }
+  }
+
+  // Marca/desmarca "possível comprador" direto no card do check-in (otimista).
+  async function toggleComprador() {
+    if (!res || !res.id || !onMarcarComprador) return;
+    const novo = !compradorLocal;
+    setCompradorLocal(novo);
+    try { await onMarcarComprador(res.id, novo, res.nome); }
+    catch { setCompradorLocal(!novo); }
   }
 
   // Desfaz um credenciamento feito nesta sessão (scan/toque na pessoa errada).
@@ -203,7 +209,6 @@ export default function ScannerModal({ onDetected, onManual, onUndo, onTrocarEve
 
     return () => {
       cancelAnimationFrame(rafRef.current);
-      clearTimeout(dismissRef.current);
       if (stream) stream.getTracks().forEach((t) => t.stop());
     };
   }, []);
@@ -232,39 +237,80 @@ export default function ScannerModal({ onDetected, onManual, onUndo, onTrocarEve
                   <span className="dot" />{pronto ? 'Pronto — aponte o próximo QR' : 'Lendo…'}
                 </div>
               </div>
-              <div className={`scan-result ${res ? st.cls : 'idle'}`}
-                onClick={() => { if (res) { clearTimeout(dismissRef.current); setRes(null); } }}
-                role={res ? 'button' : undefined}>
+              <div className={`scan-result ${res ? st.cls : 'idle'} ${res && compradorLocal ? 'is-comprador' : ''}`}>
                 {!res && (
                   <div className="scan-hint">
                     <div className="scan-hint-big">Leitura contínua ativa</div>
                     Aponte a câmera para o QR do crachá/celular.<br />
-                    Pode escanear um após o outro, sem fechar esta tela.
+                    Pode escanear um após o outro, sem fechar esta tela.<br />
+                    <span className="scan-hint-min">As informações da pessoa ficam aqui até o próximo QR.</span>
                   </div>
                 )}
                 {res && (
-                  <>
-                    {res.foto
-                      ? <img className="scan-foto" src={res.foto} alt={res.nome} />
-                      : <div className={`scan-foto scan-foto-ph avatar-${res.tipo ? tipoCls(res.tipo) : 'comum'}`}>{res.status === 'erro' ? '!' : initials(res.nome)}</div>}
-                    <div className="scan-nome">{res.nome}</div>
-                    {res.tipo && <span className={`tbadge tbadge-${tipoCls(res.tipo)}`}>{tipoLabel(res.tipo)}{res.turma ? ` · ${res.turma}` : ''}</span>}
-                    {(res.camisa || res.grupo) && (
-                      <div className="scan-extras">
-                        {res.camisa && <span className="scan-chip">Camisa <b>{res.camisa}</b></span>}
-                        {res.grupo && <span className="scan-chip">No grupo: <b>{res.grupo}</b></span>}
+                  <div className="scan-card">
+                    <div className="scan-card-head">
+                      {res.foto
+                        ? <img className="scan-foto" src={res.foto} alt={res.nome} />
+                        : <div className={`scan-foto scan-foto-ph avatar-${res.tipo ? tipoCls(res.tipo) : 'comum'}`}>{res.status === 'erro' ? '!' : initials(res.nome)}</div>}
+                      <div className="scan-card-id">
+                        <div className="scan-nome">{res.nome}</div>
+                        <div className="scan-badges">
+                          {res.nivel && <span className="scan-nivel">{res.nivel}</span>}
+                          {res.ingresso && <span className={`scan-ingresso ing-${res.ingresso.toLowerCase()}`}>{res.ingresso}</span>}
+                          {res.tipo && <span className={`tbadge tbadge-${tipoCls(res.tipo)}`}>{tipoLabel(res.tipo)}</span>}
+                        </div>
                       </div>
-                    )}
+                    </div>
+
                     <div className={`scan-status ${st.cls}`}>{st.txt}</div>
                     {res.sub && <div className="scan-sub">{res.sub}</div>}
+
+                    {res.status !== 'erro' && (
+                      <div className="scan-perfil">
+                        {compradorLocal && <div className="scan-comprador-selo">★ Possível comprador</div>}
+                        {(res.turma || res.grupo || res.camisa) && (
+                          <div className="scan-extras">
+                            {res.turma && <span className="scan-chip">Turma <b>{res.turma}</b></span>}
+                            {res.camisa && <span className="scan-chip">Camisa <b>{res.camisa}</b></span>}
+                            {res.grupo && <span className="scan-chip">No grupo: <b>{res.grupo}</b></span>}
+                          </div>
+                        )}
+                        {res.profissao && <div className="scan-linha"><span>Profissão</span><b>{res.profissao}</b></div>}
+                        {res.faturamento && <div className="scan-linha"><span>Faturamento</span><b>{res.faturamento}</b></div>}
+                        {res.cidade && <div className="scan-linha"><span>Cidade</span><b>{res.cidade}</b></div>}
+                        {res.telefone && (
+                          <div className="scan-linha"><span>WhatsApp</span>
+                            <a href={`https://wa.me/${(res.telefone || '').replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}>{res.telefone}</a>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {res.trocaEvento && (
                       <button type="button" className="btn primary scan-troca"
                         onClick={(e) => { e.stopPropagation(); trocarECredenciar(res.trocaEvento); }}>
                         Credenciar em {res.trocaEvento.nome}
                       </button>
                     )}
-                    <div className="scan-tap-hint">toque para continuar</div>
-                  </>
+
+                    {res.status !== 'erro' && res.id && (
+                      <div className="scan-card-actions">
+                        {onMarcarComprador && (
+                          <button type="button" className={`btn ${compradorLocal ? '' : 'primary'} scan-act`}
+                            onClick={(e) => { e.stopPropagation(); toggleComprador(); }}>
+                            {compradorLocal ? '✓ É possível comprador' : '★ Marcar possível comprador'}
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Volta para a câmera sem esperar o próximo QR (essencial no celular,
+                        onde o card cobre a câmera). O histórico "Últimos" continua embaixo. */}
+                    <button type="button" className="scan-continuar" onClick={() => setRes(null)}>
+                      Continuar lendo →
+                    </button>
+                  </div>
                 )}
               </div>
             </div>

@@ -13,6 +13,7 @@ import SettingsModal from './components/SettingsModal.jsx';
 import { beepOk, beepErr } from './beep.js';
 import { enfileirar, flushFila, tamanhoFila } from './offline.js';
 import { tipoLabel, tipoCls } from './tipos.js';
+import { nivelLabel, ingressoLabel, ehPossivelComprador, faturamentoDe } from './perfil.js';
 import { linhasExport, aplicarQrImagem } from './exportRows.js';
 import {
   IconImport, IconExport, IconPlus, IconSearch, IconCheck, IconSquare, IconEdit, IconLogout, IconReset,
@@ -178,6 +179,37 @@ function Credenciamento({ operador, onLogout }) {
     onSettled: () => { qc.invalidateQueries({ queryKey: ['participantes', eventoId] }); qc.invalidateQueries({ queryKey: ['eventos'] }); },
   });
 
+  // Marca/desmarca "possível comprador" (sinal alimentado pela equipe). Propaga
+  // para a mesma pessoa nos 3 dias no servidor; aqui atualiza a lista do dia atual
+  // de forma otimista (a flag vive em dados_extra.possivel_comprador).
+  const marcarComprador = useCallback(async (id, valor, nome) => {
+    qc.setQueryData(['participantes', eventoId], (old) => old && {
+      ...old,
+      list: old.list.map((p) => (p.id === id
+        ? { ...p, dados_extra: { ...(p.dados_extra || {}), ...(valor ? { possivel_comprador: true } : {}) } }
+        : p)),
+    });
+    // Remove a chave quando desmarcado (o spread acima não apaga).
+    if (!valor) {
+      qc.setQueryData(['participantes', eventoId], (old) => old && {
+        ...old,
+        list: old.list.map((p) => {
+          if (p.id !== id) return p;
+          const de = { ...(p.dados_extra || {}) }; delete de.possivel_comprador;
+          return { ...p, dados_extra: de };
+        }),
+      });
+    }
+    try {
+      await api.marcarComprador(id, valor);
+      toast(valor ? `✓ ${nome || ''} marcado como possível comprador` : `${nome || ''} desmarcado`, valor ? 'success' : '');
+    } catch {
+      toast('Não consegui salvar a marcação', 'danger');
+    } finally {
+      qc.invalidateQueries({ queryKey: ['participantes', eventoId] });
+    }
+  }, [qc, eventoId, toast]);
+
   const filtrada = useMemo(() => {
     const q = norm(busca.trim());
     const arr = lista.filter((x) => {
@@ -310,7 +342,15 @@ function Credenciamento({ operador, onLogout }) {
     const ex = det.dados_extra && typeof det.dados_extra === 'object' ? det.dados_extra : {};
     const grupo = det.grupo || ex['Entrou no grupo?'] || ex['Está no grupo?'] || ex['Está no grupo da Imersão?'] || '';
     // id incluído para o "Desfazer" da sessão do scanner.
-    const info = { id: det.id, nome: det.nome, tipo: det.tipo, turma: det.turma, camisa: det.tamanhoCamisa };
+    // Card do scanner em modo painel: leva o perfil que a equipe usa para
+    // organizar/analisar (nível THB, ingresso, possível comprador, contato).
+    const info = {
+      id: det.id, nome: det.nome, tipo: det.tipo, turma: det.turma, camisa: det.tamanhoCamisa,
+      nivel: nivelLabel(det), ingresso: ingressoLabel(det), comprador: ehPossivelComprador(det),
+      profissao: det.profissao || '', faturamento: faturamentoDe(det),
+      cidade: [det.cidade, det.estado].filter(Boolean).join(' / '),
+      telefone: det.telefone || '', email: det.email || '',
+    };
     if (grupo) info.grupo = grupo;
 
     if (det.credenciado) { beepOk(); return { status: 'duplicado', ...info }; }
@@ -637,6 +677,7 @@ function Credenciamento({ operador, onLogout }) {
           onClose={() => setDetalheId(null)}
           onEdit={readOnly ? null : (p) => { setDetalheId(null); setEditando(p); }}
           onCredenciar={readOnly ? null : (id, novo, nome) => credenciarMut.mutateAsync({ id, credenciado: novo, nome })}
+          onMarcarComprador={readOnly ? null : marcarComprador}
           onOpenByName={(nome) => {
             const alvo = norm(nome);
             const achado = lista.find((x) => norm(x.nome) === alvo) || lista.find((x) => norm(x.nome).includes(alvo));
@@ -653,6 +694,7 @@ function Credenciamento({ operador, onLogout }) {
           onUndo={(id, nome) => credenciarMut.mutate({ id, credenciado: false, nome })}
           onTrocarEvento={trocarECredenciar}
           onQuickAdd={cadastrarRapido}
+          onMarcarComprador={marcarComprador}
           lista={lista} eventoNome={eventoAtual?.nome || ''} onClose={() => setScanOpen(false)} />
       )}
       {dashOpen && <DashboardModal eventoId={eventoId} eventoNome={eventoAtual?.nome || ''} lista={lista} onClose={() => setDashOpen(false)} />}
