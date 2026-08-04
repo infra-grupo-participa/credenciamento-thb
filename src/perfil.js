@@ -16,24 +16,41 @@ const POR_KEY = Object.fromEntries(NIVEIS.map((n) => [n.key, n]));
 
 const up = (s) => String(s || '').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
+// Níveis da régua THB. Só estes têm rótulo próprio; qualquer outra origem
+// (Ex aluno, Ex Aurum, Ex-HT, Ex sócia, Tráfego, Não encontrado, Familiar de…)
+// é mostrada com o TEXTO EXATO da planilha.
+const NIVEL_CANONICO = /^(THB|AURUM|PLATINA|DIAMANTE)/;
+
 // Classifica o nível de instrução THB. Retorna { key, label, cls, socio }.
 // - Diamantes (tipo=diamante): grupoDiamante distingue Titular/Vermelho/Sócio.
 // - Demais: lê a coluna Instrução da planilha ("AURUM - SÓCIO", "THB", "PLATINA"...).
 export function nivelInstrucao(p) {
   const ex = p && p.dados_extra && typeof p.dados_extra === 'object' ? p.dados_extra : {};
-  const instr = up(ex['Instrução'] || ex['Instrucao'] || p.instrucao);
+  // A COLUNA `instrucao` manda. É ela que a equipe edita pela tela e que o import
+  // atualiza; o `dados_extra` guarda a linha da planilha como veio na carga e pode
+  // estar defasado (era o caso de 57 pessoas do ETHB SP em 04/08/2026).
+  const bruto = String((p && p.instrucao) || ex['Instrução'] || ex['Instrucao'] || '').trim();
+  const instr = up(bruto);
   const gd = up(p.grupoDiamante);
   // Nível deriva de grupoDiamante + instrução (não do tipo — que agora é
   // comprador/convidado, sobre quem PAGOU, não sobre o nível dentro do THB).
   const socio = /SOCIO/.test(instr) || /SOCIO/.test(gd);
 
-  let key = null;
   if (/DIAMANTE/.test(gd) || /DIAMANTE/.test(instr)) {
-    key = (/VERMELHO/.test(gd) || /VERMELHO/.test(instr)) ? 'diamante_vermelho' : 'diamante';
-  } else if (/PLATINA/.test(instr)) key = 'platina';
+    const k = (/VERMELHO/.test(gd) || /VERMELHO/.test(instr)) ? 'diamante_vermelho' : 'diamante';
+    return { ...POR_KEY[k], socio };
+  }
+  // Vem ANTES de Platina/Aurum/THB de propósito: "Ex Aurum" não é Aurum e
+  // "Ex-HT" não é THB — cair no `else` genérico rotulava essa gente como THB.
+  // A chave segue 'exaluno' (o Dashboard agrupa por key), só o rótulo é o texto real.
+  if (instr && !NIVEL_CANONICO.test(instr)) {
+    return { ...POR_KEY.exaluno, label: bruto, socio: false };
+  }
+
+  let key = null;
+  if (/PLATINA/.test(instr)) key = 'platina';
   else if (/AURUM/.test(instr)) key = 'aurum';
   else if (/THB/.test(instr)) key = 'thb';
-  else if (/EX ALUNO|NAO LOCALIZAD/.test(instr)) key = 'exaluno';
   else key = 'thb'; // sem instrução declarada → tratado como base THB
 
   const n = POR_KEY[key] || POR_KEY.thb;
