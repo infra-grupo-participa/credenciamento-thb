@@ -339,6 +339,16 @@ function AbaSenha({ toast }) {
   async function salvar() {
     if (s1.length < 4) { toast('A senha precisa de pelo menos 4 caracteres', 'danger'); return; }
     if (s1 !== s2) { toast('As senhas não conferem', 'danger'); return; }
+    // Raio de explosão alto: a senha é ÚNICA para toda a equipe. Trocar sem avisar
+    // pode deixar o balcão inteiro sem conseguir entrar no meio da fila.
+    const ok = confirm(
+      'Trocar a senha do evento?\n\n'
+      + '• Vale para TODOS os operadores, de imediato.\n'
+      + '• Quem estiver logado continua trabalhando normalmente.\n'
+      + '• Quem sair, trocar de aparelho ou precisar entrar de novo só entra com a senha NOVA.\n\n'
+      + 'Avise a equipe toda antes de confirmar.'
+    );
+    if (!ok) return;
     setSalvando(true);
     try { await api.trocarSenha(s1); toast('Senha do evento atualizada', 'success'); setS1(''); setS2(''); }
     catch { toast('Erro ao trocar a senha', 'danger'); }
@@ -346,7 +356,7 @@ function AbaSenha({ toast }) {
   }
   return (
     <div>
-      <p className="cfg-title">Define a senha que todos os operadores usam para entrar (vale imediatamente para novos logins).</p>
+      <p className="cfg-title">Define a senha que <strong>todos</strong> os operadores usam para entrar (vale imediatamente para novos logins). Só troque se a equipe inteira souber a senha nova.</p>
       <div className="field"><label>Nova senha</label><input type="password" value={s1} onChange={(e) => setS1(e.target.value)} /></div>
       <div className="field"><label>Confirmar senha</label><input type="password" value={s2} onChange={(e) => setS2(e.target.value)} /></div>
       <button className="btn primary" onClick={salvar} disabled={salvando}>Salvar nova senha</button>

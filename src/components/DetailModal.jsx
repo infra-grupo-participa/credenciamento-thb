@@ -63,10 +63,20 @@ export default function DetailModal({ participantId, eventos = [], readOnly, onC
   const [foto, setFoto] = useState(null);
   const [aba, setAba] = useState('resumo');
   const [hist, setHist] = useState([]);
+  // 'carregando' | 'ok' | 'erro' — "vazio" e "não consegui buscar" NÃO podem parecer
+  // a mesma coisa: o operador concluiria que a pessoa nunca veio.
+  const [histEstado, setHistEstado] = useState('carregando');
   const [cam, setCam] = useState(false);
   const [salvandoCred, setSalvandoCred] = useState(false);
   const [qr, setQr] = useState('');
   const fileRef = useRef(null);
+
+  function carregarHistorico(id) {
+    setHistEstado('carregando');
+    api.historico(id)
+      .then((r) => { setHist(r.historico || []); setHistEstado('ok'); })
+      .catch(() => { setHist([]); setHistEstado('erro'); });
+  }
 
   useEffect(() => {
     setP(null); setErro(false); setFoto(null); setHist([]); setAba('resumo'); setQr('');
@@ -76,7 +86,7 @@ export default function DetailModal({ participantId, eventos = [], readOnly, onC
       QRCode.toDataURL(String(d.pessoa_token || d.id), { margin: 1, width: 240 }).then(setQr).catch(() => setQr(''));
       if (d.temFoto) api.getFoto(participantId).then((r) => setFoto(r.foto || '')).catch(() => {});
     }).catch(() => setErro(true));
-    api.historico(participantId).then((r) => setHist(r.historico || [])).catch(() => {});
+    carregarHistorico(participantId);
   }, [participantId]);
 
   const tel = p && (p.telefone || '').replace(/\D/g, '');
@@ -282,7 +292,17 @@ export default function DetailModal({ participantId, eventos = [], readOnly, onC
 
               {aba === 'hist' && (
                 <div className="kvs">
-                  {hist.length === 0 && <div className="photo-empty">Sem histórico em outros eventos.</div>}
+                  {histEstado === 'carregando' && <div className="photo-empty">Buscando o histórico…</div>}
+                  {histEstado === 'erro' && (
+                    <div className="estado-erro" role="alert">
+                      <div className="ee-titulo">Não deu para buscar o histórico</div>
+                      <div className="ee-sub">Isso <strong>não</strong> quer dizer que a pessoa nunca veio — a busca falhou. Tente de novo.</div>
+                      <button type="button" className="btn primary" onClick={() => carregarHistorico(participantId)}>
+                        Tentar de novo
+                      </button>
+                    </div>
+                  )}
+                  {histEstado === 'ok' && hist.length === 0 && <div className="photo-empty">Sem histórico em outros eventos.</div>}
                   {hist.map((h) => (
                     <div key={h.id} className="kv">
                       <span className="kv-k">{nomeEvento(h.evento_id)}</span>

@@ -40,12 +40,19 @@ export default function DashboardModal({ eventoId, eventoNome, lista, onClose })
   const toast = useToast();
   const [aba, setAba] = useState('dashboard');
   const [audit, setAudit] = useState(null);
+  // "não veio nada" e "a busca falhou" precisam ser estados diferentes na tela.
+  const [auditErro, setAuditErro] = useState(false);
+
+  // Zera o estado; o efeito abaixo refaz a busca (evita duplicar a chamada).
+  const carregarAuditoria = () => { setAuditErro(false); setAudit(null); };
 
   useEffect(() => {
-    if (aba === 'auditoria' && audit === null) {
-      api.auditoria(eventoId).then((r) => setAudit(r.itens || [])).catch(() => setAudit([]));
+    if (aba === 'auditoria' && audit === null && !auditErro) {
+      api.auditoria(eventoId)
+        .then((r) => setAudit(r.itens || []))
+        .catch(() => { setAuditErro(true); setAudit([]); });
     }
-  }, [aba, audit, eventoId]);
+  }, [aba, audit, auditErro, eventoId]);
 
   const m = useMemo(() => {
     const total = lista.length;
@@ -205,7 +212,14 @@ export default function DashboardModal({ eventoId, eventoNome, lista, onClose })
           {aba === 'auditoria' && (
             <div className="kvs">
               {audit === null && <div className="center-screen" style={{ minHeight: 120 }}><div className="spinner" /></div>}
-              {audit && audit.length === 0 && <div className="photo-empty">Sem registros de auditoria neste evento.</div>}
+              {auditErro && (
+                <div className="estado-erro" role="alert">
+                  <div className="ee-titulo">Não deu para buscar a auditoria</div>
+                  <div className="ee-sub">A busca falhou — <strong>não</strong> quer dizer que não há registros. Tente de novo.</div>
+                  <button type="button" className="btn primary" onClick={carregarAuditoria}>Tentar de novo</button>
+                </div>
+              )}
+              {!auditErro && audit && audit.length === 0 && <div className="photo-empty">Sem registros de auditoria neste evento.</div>}
               {audit && audit.map((a) => (
                 <div key={a.id} className="audit-row">
                   <span className={`audit-acao acao-${a.acao}`}>{a.acao}</span>

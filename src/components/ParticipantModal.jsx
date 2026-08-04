@@ -7,7 +7,9 @@ import { IconClose } from '../icons.jsx';
 const VAZIO = {
   nome: '', nomeCracha: '', email: '', telefone: '', documento: '', turma: '', profissao: '',
   tamanhoCamisa: '', dataChegada: '', dataRetorno: '', instrucao: '', observacoes: '',
-  tipo: 'comum', convidadoPor: '', cidade: '', estado: '', nivel: '', grupo: '', grupoDiamante: '',
+  // Mesmo default do walk-in do scanner: quem é cadastrado na hora quase sempre comprou.
+  // "comum" deixaria a pessoa invisível no filtro de Tipo (só oferece comprador/convidado).
+  tipo: 'comprador', convidadoPor: '', cidade: '', estado: '', nivel: '', grupo: '', grupoDiamante: '',
 };
 
 export default function ParticipantModal({ participant, eventoId, nomeInicial = '', onClose }) {
@@ -88,7 +90,15 @@ export default function ParticipantModal({ participant, eventoId, nomeInicial = 
 
   async function excluir() {
     if (!participant) return;
-    if (!confirm(`Excluir "${participant.nome}" da lista?`)) return;
+    // Apaga a pessoa e todo o rastro dela neste dia. Não há "desfazer" no app.
+    const ok = confirm(
+      `EXCLUIR "${participant.nome}" deste evento?\n\n`
+      + '• Apaga o cadastro, o credenciamento e o histórico desta pessoa neste dia.\n'
+      + '• NÃO dá para desfazer pelo aplicativo.\n'
+      + '• Se ela chegar depois, vai ter que ser cadastrada de novo, do zero.\n\n'
+      + 'Se a intenção é só desmarcar a entrada, cancele aqui e use "Credenciado" na ficha dela.'
+    );
+    if (!ok) return;
     setSalvando(true);
     try {
       await api.excluir(participant.id);
@@ -124,10 +134,11 @@ export default function ParticipantModal({ participant, eventoId, nomeInicial = 
               <div className="field">
                 <label>Tipo</label>
                 <select value={form.tipo} onChange={set('tipo')}>
+                  <option value="comprador">Comprador</option>
+                  <option value="convidado">Convidado</option>
                   <option value="comum">Comum</option>
                   <option value="socio">Sócio</option>
                   <option value="diamante">Diamante</option>
-                  <option value="convidado">Convidado</option>
                 </select>
               </div>
               <div className="field"><label>Convidado por</label><input value={form.convidadoPor || ''} onChange={set('convidadoPor')} placeholder="Nome de quem convidou" /></div>

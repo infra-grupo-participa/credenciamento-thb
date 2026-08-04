@@ -10,7 +10,7 @@ import HistoryModal from './components/HistoryModal.jsx';
 import ScannerModal from './components/ScannerModal.jsx';
 import DashboardModal from './components/DashboardModal.jsx';
 import SettingsModal from './components/SettingsModal.jsx';
-import { beepOk, beepErr } from './beep.js';
+import { beepOk, beepErr, beepDup } from './beep.js';
 import { enfileirar, flushFila, tamanhoFila } from './offline.js';
 import { tipoLabel, tipoCls } from './tipos.js';
 import { nivelLabel, ingressoLabel, ehPossivelComprador, faturamentoDe } from './perfil.js';
@@ -29,6 +29,15 @@ const initials = (n) => {
   return ((p[0][0] || '') + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase();
 };
 const horaAgora = () => new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+// Data de hoje no fuso do aparelho, no mesmo formato do campo `data` do evento (yyyy-mm-dd).
+const hojeISO = () => new Date().toLocaleDateString('sv-SE');
+// Evento que a equipe deve usar AGORA: o do dia de hoje. Sem nenhum batendo,
+// mantém o antigo (primeiro ativo por ordem) para não mudar o comportamento conhecido.
+function eventoPadrao(eventos) {
+  const ativos = (eventos || []).filter((e) => !e.arquivado).sort((a, b) => a.ordem - b.ordem);
+  const hoje = hojeISO();
+  return ativos.find((e) => e.data === hoje) || ativos[0] || null;
+}
 function grupoBadge(g) {
   if (!g) return <span style={{ color: 'var(--muted)' }}>—</span>;
   const v = String(g).trim();
@@ -39,19 +48,45 @@ function grupoBadge(g) {
 export default function App() {
   const [operador, setOperador] = useState(auth.token ? auth.operador : null);
   const [checando, setChecando] = useState(!!auth.token);
+  const [avisoLogin, setAvisoLogin] = useState('');
+  const [semRede, setSemRede] = useState(false);
 
   useEffect(() => {
-    if (auth.token) {
-      api.me().then((d) => setOperador(d.operador)).catch(() => setOperador(null)).finally(() => setChecando(false));
+    let vivo = true;
+    let timer = 0;
+    // O /me só pode derrubar a sessão quando o servidor diz 401 (tratado pelo evento
+    // 'chf:unauthorized'). Piscada de rede no boot NÃO desloga: mantém o operador,
+    // avisa e tenta de novo — Wi-Fi de evento cai o tempo todo.
+    function checar() {
+      api.me()
+        .then((d) => { if (vivo) { setOperador(d.operador); setSemRede(false); } })
+        .catch((e) => {
+          if (!vivo) return;
+          if (e?.code === 'network') { setSemRede(true); timer = setTimeout(checar, 5000); }
+        })
+        .finally(() => { if (vivo) setChecando(false); });
     }
-    const onUnauth = () => { setOperador(null); setChecando(false); };
+    if (auth.token) checar();
+    const onUnauth = () => {
+      setOperador(null); setChecando(false);
+      setAvisoLogin('Sua sessão expirou. Entre de novo para continuar — nada do que você credenciou foi perdido.');
+    };
     window.addEventListener('chf:unauthorized', onUnauth);
-    return () => window.removeEventListener('chf:unauthorized', onUnauth);
+    return () => { vivo = false; clearTimeout(timer); window.removeEventListener('chf:unauthorized', onUnauth); };
   }, []);
 
   if (checando) return <div className="center-screen"><div className="spinner" /></div>;
-  if (!operador) return <Login onLogin={(nome) => { setOperador(nome); setChecando(false); }} />;
-  return <Credenciamento operador={operador} onLogout={() => { auth.clear(); setOperador(null); }} />;
+  if (!operador) return <Login aviso={avisoLogin} onLogin={(nome) => { setOperador(nome); setChecando(false); setAvisoLogin(''); }} />;
+  return (
+    <>
+      {semRede && navigator.onLine && (
+        <div className="offline-banner">
+          <span>Sem conexão com o servidor — tentando de novo. Pode continuar credenciando: sincroniza sozinho quando voltar.</span>
+        </div>
+      )}
+      <Credenciamento operador={operador} onLogout={() => { auth.clear(); setOperador(null); }} />
+    </>
+  );
 }
 
 function Credenciamento({ operador, onLogout }) {
@@ -122,21 +157,36 @@ function Credenciamento({ operador, onLogout }) {
     window.addEventListener('online', up);
     window.addEventListener('offline', down);
     if (navigator.onLine) sincronizar();
-    return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down); };
+    // Retry periódico: o evento 'online' NÃO dispara quando o Wi-Fi continua conectado
+    // mas o servidor engasgou por alguns minutos (cenário comum em centro de convenções).
+    // Sem isto a fila ficaria parada até alguém recarregar a página — e o texto na tela
+    // promete que ela some sozinha. Só bate no servidor se houver algo pendente.
+    const tick = setInterval(() => { if (navigator.onLine && tamanhoFila() > 0) sincronizar(); }, 20000);
+    return () => {
+      clearInterval(tick);
+      window.removeEventListener('online', up); window.removeEventListener('offline', down);
+    };
   }, []);
 
   const { data: eventosData } = useQuery({ queryKey: ['eventos'], queryFn: api.eventos, refetchInterval: 15000 });
   const eventos = eventosData?.eventos || [];
 
+  // Abre SEMPRE no dia de hoje (evento cuja `data` é a de hoje). Num evento de 3 dias,
+  // abrir no dia 1 no dia 2 credenciaria centenas de pessoas na lista errada.
   useEffect(() => {
     if (!eventoId && eventos.length) {
-      const ativo = eventos.filter((e) => !e.arquivado).sort((a, b) => a.ordem - b.ordem)[0];
+      const ativo = eventoPadrao(eventos);
       if (ativo) setEventoId(ativo.id);
     }
   }, [eventos, eventoId]);
 
   const eventoAtual = eventos.find((e) => e.id === eventoId);
   const readOnly = !!eventoAtual?.arquivado;
+  // Rede de segurança: existe um evento com a data de hoje e não é o que está aberto.
+  const eventoDeHoje = eventos.find((e) => !e.arquivado && e.data === hojeISO());
+  // Compara pela DATA do evento aberto (não pelo id do "evento de hoje"): se houver
+  // mais de um evento com a data de hoje, estar em qualquer um deles é estar certo.
+  const diaErrado = !!(eventoDeHoje && eventoAtual && eventoAtual.data !== hojeISO());
 
   const { data, isError, isFetching, isLoading } = useQuery({
     queryKey: ['participantes', eventoId],
@@ -362,7 +412,9 @@ function Credenciamento({ operador, onLogout }) {
     };
     if (grupo) info.grupo = grupo;
 
-    if (det.credenciado) { beepOk(); return { status: 'duplicado', ...info }; }
+    // Som PRÓPRIO para duplicado: em salão barulhento o operador não pode confundir
+    // "entrou agora" com "já tinha entrado".
+    if (det.credenciado) { beepDup(); return { status: 'duplicado', ...info }; }
 
     // Confirma de imediato; a gravação acontece em background (não trava a fila).
     beepOk();
@@ -410,12 +462,18 @@ function Credenciamento({ operador, onLogout }) {
         const cands = (r.eventos || []).map((id) => eventos.find((e) => e.id === id)).filter((e) => e && !e.arquivado);
         const destino = cands.find((e) => e.data === hoje) || cands.find((e) => e.ativo) || cands[0];
         return {
-          status: 'erro', nome: r.nome || 'Pessoa de outro evento',
+          status: 'erro', titulo: 'QR de outro dia', nome: r.nome || 'Pessoa de outro evento',
           sub: `Pertence a: ${onde}.${destino ? '' : ' Selecione o dia correto.'}`,
           trocaEvento: destino ? { eventoId: destino.id, nome: destino.nome, code } : undefined,
         };
       }
-      if (r.status === 0) return { status: 'erro', nome: 'Sem conexão' };
+      if (r.status === 0) {
+        return {
+          status: 'erro', titulo: 'Sem conexão', nome: 'Não deu para conferir este QR',
+          sub: 'Busque a pessoa por nome ou CPF aqui embaixo — a lista do dia funciona sem internet.',
+          naoReconhecido: true,
+        };
+      }
       return { status: 'erro', nome: 'QR não reconhecido', sub: 'Use a busca abaixo (nome ou CPF) para credenciar.', naoReconhecido: true };
     }
     return credenciarPessoa(r);
@@ -431,8 +489,25 @@ function Credenciamento({ operador, onLogout }) {
   }
 
   // Walk-in pelo scanner: cadastra o mínimo (nome + tipo) e já credencia.
+  // NÃO entra na fila offline de propósito: quem gera o id/pessoa_token é o servidor,
+  // então um cadastro "otimista" sem resposta viraria pessoa duplicada quando a rede
+  // voltasse. Falhou = o operador é avisado na hora e não libera a entrada.
   async function cadastrarRapido({ nome, tipo }) {
-    const criado = await api.criar({ nome, tipo, evento_id: eventoId });
+    let criado;
+    try {
+      criado = await api.criar({ nome, tipo, evento_id: eventoId });
+    } catch (e) {
+      beepErr();
+      const offline = !navigator.onLine || e?.code === 'network';
+      return {
+        status: 'erro',
+        titulo: offline ? 'Sem internet — NÃO cadastrou' : 'Não deu para cadastrar',
+        nome,
+        sub: offline
+          ? 'Anote o nome no papel e cadastre quando a internet voltar. NÃO libere a entrada ainda.'
+          : 'Tente de novo em alguns segundos. Se continuar falhando, anote o nome no papel e siga a fila.',
+      };
+    }
     qc.invalidateQueries({ queryKey: ['participantes', eventoId] });
     qc.invalidateQueries({ queryKey: ['eventos'] });
     return credenciarPessoa(criado);
@@ -493,7 +568,7 @@ function Credenciamento({ operador, onLogout }) {
         </div>
       </header>
 
-      <EventBar eventos={eventos} eventoId={eventoId} onSelect={setEventoId} />
+      <EventBar eventos={eventos} eventoId={eventoId} onSelect={setEventoId} hoje={hojeISO()} />
 
       <nav className="view-nav">
         <button className={`view-tab ${view === 'lista' ? 'active' : ''}`} onClick={() => setView('lista')}>
@@ -508,9 +583,18 @@ function Credenciamento({ operador, onLogout }) {
         <div className="readonly-banner">
           Visualizando <strong>{eventoAtual?.nome}</strong> (histórico — somente leitura).
           <button className="btn ghost" onClick={() => {
-            const ativo = eventos.filter((e) => !e.arquivado).sort((a, b) => a.ordem - b.ordem)[0];
+            const ativo = eventoPadrao(eventos);
             if (ativo) setEventoId(ativo.id);
           }}>Voltar aos eventos ativos</button>
+        </div>
+      )}
+
+      {diaErrado && (
+        <div className="dia-errado-banner">
+          <span>Atenção: você está na lista de <strong>{eventoAtual?.nome}</strong>, mas hoje é <strong>{eventoDeHoje.nome}</strong>.</span>
+          <button className="btn primary" onClick={() => setEventoId(eventoDeHoje.id)}>
+            Ir para {eventoDeHoje.nome}
+          </button>
         </div>
       )}
 
@@ -726,6 +810,9 @@ function Credenciamento({ operador, onLogout }) {
           onTrocarEvento={trocarECredenciar}
           onQuickAdd={cadastrarRapido}
           onMarcarComprador={marcarComprador}
+          pendentes={pendentes} online={online}
+          diaErrado={diaErrado} nomeDeHoje={eventoDeHoje?.nome || ''}
+          onIrParaHoje={eventoDeHoje ? () => setEventoId(eventoDeHoje.id) : null}
           lista={lista} eventoNome={eventoAtual?.nome || ''} onClose={() => setScanOpen(false)} />
       )}
       {settingsOpen && <SettingsModal eventos={eventos} onClose={() => setSettingsOpen(false)} />}

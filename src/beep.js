@@ -19,5 +19,11 @@ function vibrar(padrao) {
   try { if (navigator.vibrate) navigator.vibrate(padrao); } catch { /* ignora */ }
 }
 
+// Sucesso: dois tons SUBINDO (880 -> 1320). "Entrou agora."
 export const beepOk = () => { tom(880, 90); tom(1320, 120, 'sine', 0.09); vibrar(60); };
+// Erro: um tom grave e áspero.
 export const beepErr = () => { tom(200, 240, 'square'); vibrar([90, 60, 90]); };
+// Já credenciado: dois toques IGUAIS e mais graves (440), com vibração dupla —
+// em salão barulhento não pode ser confundido com o som de sucesso, senão o
+// operador libera de novo quem já entrou.
+export const beepDup = () => { tom(440, 110, 'triangle'); tom(440, 110, 'triangle', 0.17); vibrar([50, 90, 50]); };

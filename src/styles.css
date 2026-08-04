@@ -7,15 +7,31 @@
   --line:#e5e7ec;
   --text:#1d1d1b;          /* grafite THB */
   --muted:#596170;
-  --primary:#ef7c00;       /* laranja THB */
+  --primary:#ef7c00;       /* laranja THB — preenchimentos grandes, nunca texto */
   --primary-2:#f5933a;     /* laranja claro */
   --primary-deep:#e56d02;  /* laranja profundo */
-  --success:#1f9d57;
+  --primary-ink:#a84c00;   /* laranja LEGÍVEL como texto/ícone (5,7:1 no branco) */
+  --primary-btn:#bb5700;   /* gradiente do botão primário: stop claro (4,7:1 c/ branco) */
+  --primary-btn-2:#9c4700; /* stop escuro (6,3:1 c/ branco) */
+  --success:#1f9d57;       /* verde de PREENCHIMENTO (3,5:1 — não usar como texto) */
   --success-2:#22b366;
-  --warning:#f59e0b;
-  --danger:#e23b3b;
+  --success-text:#0f6b3c;  /* verde LEGÍVEL como texto (6,6:1 no branco) */
+  --warning:#f59e0b;       /* âmbar de PREENCHIMENTO (2,2:1 — nunca como texto) */
+  --warn-text:#8a5200;     /* âmbar LEGÍVEL como texto (6,4:1 no branco) */
+  --warn-bg:#fff4e0;
+  --warn-line:#e8b869;
+  --danger:#e23b3b;        /* vermelho de PREENCHIMENTO */
+  --danger-text:#a3121a;   /* vermelho LEGÍVEL como texto (7,9:1 no branco) */
+  --danger-bg:#fdecea;
+  --danger-line:#e8a49d;
   --accent:#f5933a;
-  --muted-2:#8b929d;       /* texto terciário */
+  --muted-2:#6b7280;       /* texto terciário (4,8:1 — antes #8b929d, 3,1:1) */
+  /* Estados do credenciamento sob luz forte: fundo SÓLIDO + tinta de alto contraste.
+     ok 7,4:1 / duplicado 10,2:1 / erro 7,9:1 — cada um com ícone próprio (WCAG 1.4.1). */
+  --st-ok-bg:#0b6337;   --st-ok-ink:#ffffff;
+  --st-dup-bg:#ffc233;  --st-dup-ink:#2a1d00;
+  --st-err-bg:#a3121a;  --st-err-ink:#ffffff;
+  --tap:48px;              /* alvo de toque mínimo (Material 48dp) */
   --radius:14px;
   --radius-sm:10px;
   --shadow:0 1px 2px rgba(29,29,27,.04), 0 4px 14px rgba(29,29,27,.06);
@@ -40,7 +56,7 @@ button{font-family:inherit}
 .mais-wrap{position:relative}
 .btn.ghost.active{background:rgba(29,29,27,.05);border-color:var(--line);color:var(--text)}
 .mais-menu{position:absolute;top:calc(100% + 8px);right:0;min-width:210px;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-pop);padding:6px;z-index:60;animation:pop .14s ease}
-.mais-menu button{all:unset;box-sizing:border-box;width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:600;color:var(--text);cursor:pointer}
+.mais-menu button{all:unset;box-sizing:border-box;width:100%;display:flex;align-items:center;gap:10px;padding:12px;min-height:48px;border-radius:8px;font-size:14px;font-weight:600;color:var(--text);cursor:pointer}
 .mais-menu button:hover{background:rgba(29,29,27,.05)}
 .mais-menu button svg{width:16px;height:16px;color:var(--muted);flex-shrink:0}
 .mais-sep{height:1px;background:var(--line);margin:5px 6px}
@@ -51,7 +67,7 @@ button{font-family:inherit}
 .summary-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
 .summary-title{display:flex;flex-direction:column;gap:8px;min-width:0}
 .summary-evento{font-size:17px;font-weight:800;letter-spacing:-.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.summary-pct{font-size:34px;font-weight:800;line-height:1;letter-spacing:-1px;color:var(--success);flex-shrink:0}
+.summary-pct{font-size:34px;font-weight:800;line-height:1;letter-spacing:-1px;color:var(--success-text);flex-shrink:0}
 .summary-pct span{font-size:18px;font-weight:700;margin-left:1px}
 .summary-progress{margin-top:14px}
 .summary-bar{height:12px;border-radius:999px;background:rgba(29,29,27,.07);overflow:hidden}
@@ -62,8 +78,8 @@ button{font-family:inherit}
 .summary-metric{display:flex;flex-direction:column;gap:3px;padding:12px 14px;border-radius:var(--radius-sm);background:var(--card-2);border:1px solid var(--line)}
 .summary-metric .sm-label{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);font-weight:700}
 .summary-metric .sm-value{font-size:24px;font-weight:800;letter-spacing:-.5px}
-.summary-metric.ok .sm-value{color:var(--success)}
-.summary-metric.warn .sm-value{color:#b3700a}
+.summary-metric.ok .sm-value{color:var(--success-text)}
+.summary-metric.warn .sm-value{color:var(--warn-text)}
 .summary-metric.acc .sm-value{color:var(--primary)}
 
 /* Toolbar */
@@ -74,31 +90,31 @@ button{font-family:inherit}
 .search input:focus{border-color:var(--primary);box-shadow:0 0 0 4px rgba(239,124,0,.16)}
 .search>svg{position:absolute;left:15px;top:50%;transform:translateY(-50%);color:var(--muted);width:19px;height:19px}
 .search-kbd{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:12px;font-weight:700;color:var(--muted-2);background:var(--card-2);border:1px solid var(--line);border-radius:6px;padding:2px 7px;line-height:1.4}
-.search-clear{position:absolute;right:10px;top:50%;transform:translateY(-50%);width:28px;height:28px;border:none;background:transparent;color:var(--muted);border-radius:50%;cursor:pointer;display:grid;place-items:center}
+.search-clear{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:40px;height:40px;border:none;background:transparent;color:var(--muted);border-radius:50%;cursor:pointer;display:grid;place-items:center}
 .search-clear:hover{background:rgba(29,29,27,.06);color:var(--text)}
-.search-clear svg{width:15px;height:15px}
-.filter{display:flex;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px;gap:2px;box-shadow:var(--shadow)}
-.filter button{background:transparent;border:none;color:var(--muted);padding:10px 15px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;transition:all .18s;display:inline-flex;align-items:center;gap:7px}
-.filter button.active{background:linear-gradient(135deg,var(--primary),var(--primary-deep));color:#fff;box-shadow:0 3px 10px rgba(239,124,0,.3)}
+.search-clear svg{width:17px;height:17px}
+.filter{display:flex;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px;gap:6px;box-shadow:var(--shadow)}
+.filter button{background:transparent;border:none;color:var(--muted);padding:10px 15px;min-height:40px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;transition:all .18s;display:inline-flex;align-items:center;gap:7px}
+.filter button.active{background:linear-gradient(135deg,var(--primary-btn),var(--primary-btn-2));color:#fff;box-shadow:0 3px 10px rgba(168,76,0,.3)}
 .filter button:hover:not(.active){color:var(--text);background:rgba(29,29,27,.04)}
 .filter-count{font-size:11px;font-weight:800;padding:1px 7px;border-radius:999px;background:rgba(29,29,27,.07);color:var(--muted);min-width:20px;text-align:center}
 .filter button.active .filter-count{background:rgba(255,255,255,.25);color:#fff}
 
 /* Controles secundários (discretos) */
 .toolbar-sub{max-width:1400px;margin:10px auto 0;padding:0 24px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.ctl{background:transparent;border:1px solid var(--line);color:var(--muted);padding:8px 12px;border-radius:9px;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;outline:none;transition:all .16s}
+.ctl{background:transparent;border:1px solid var(--line);color:var(--muted);padding:9px 14px;min-height:40px;border-radius:9px;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;outline:none;transition:all .16s}
 .ctl:hover{border-color:var(--primary-2);color:var(--text)}
 .ctl:focus{border-color:var(--primary)}
-.ctl.on{border-color:var(--primary);color:var(--primary-deep);background:#fff7ef}
+.ctl.on{border-color:var(--primary-ink);color:var(--primary-ink);background:#fff7ef}
 select.ctl{padding-right:26px}
 
-.btn{border:1px solid var(--line);background:var(--card);color:var(--text);padding:11px 16px;border-radius:12px;cursor:pointer;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:8px;transition:all .18s}
+.btn{border:1px solid var(--line);background:var(--card);color:var(--text);padding:11px 16px;min-height:44px;border-radius:12px;cursor:pointer;font-size:13px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:all .18s}
 .btn:hover{border-color:var(--primary-2);background:#fff7ef;transform:translateY(-1px)}
 .btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
 .btn svg{width:16px;height:16px}
-.btn.primary{background:linear-gradient(135deg,var(--primary),var(--primary-deep));border-color:transparent;color:#fff;box-shadow:0 6px 18px rgba(239,124,0,.38)}
+.btn.primary{background:linear-gradient(135deg,var(--primary-btn),var(--primary-btn-2));border-color:transparent;color:#fff;font-weight:700;box-shadow:0 6px 18px rgba(168,76,0,.34)}
 .btn.primary:hover{filter:brightness(1.06)}
-.btn.danger{color:#c23535;border-color:#e23b3b55}
+.btn.danger{color:var(--danger-text);border-color:rgba(226,59,59,.5)}
 .btn.danger:hover{background:rgba(226,59,59,.08);border-color:var(--danger)}
 .btn.ghost{background:transparent}
 
@@ -128,36 +144,36 @@ table.tbl tbody tr:last-child td{border-bottom:none}
 tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--success-2))}
 .name-wrap{min-width:0}
 .name{font-weight:600;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px}
-.name-sub{color:var(--muted);font-size:11.5px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px}
+.name-sub{color:var(--muted);font-size:12.5px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px}
 .name-contact{display:flex;align-items:center;gap:10px;margin-top:3px;font-size:12px;max-width:340px}
 .name-contact a{color:var(--muted);text-decoration:none;white-space:nowrap}
-.name-contact a:hover{color:var(--primary)}
+.name-contact a:hover{color:var(--primary-ink)}
 .name-contact .nc-mail{color:var(--muted-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .info-cell{display:flex;flex-wrap:wrap;gap:6px;max-width:280px}
 .info-empty{color:var(--muted-2)}
 
-.badge{display:inline-flex;align-items:center;gap:6px;background:rgba(29,29,27,.05);color:var(--muted);padding:3px 8px;border-radius:999px;font-size:11px;font-weight:600}
-.badge.turma{background:rgba(239,124,0,.12);color:#c2590a}
-.badge.size{background:rgba(245,147,58,.16);color:#b3600c}
-.badge.new{background:rgba(245,158,11,.16);color:#b45309}
-.badge.inst{background:rgba(29,29,27,.05);color:#525866}
+.badge{display:inline-flex;align-items:center;gap:6px;background:rgba(29,29,27,.05);color:var(--muted);padding:4px 9px;border-radius:999px;font-size:12px;font-weight:600}
+.badge.turma{background:rgba(239,124,0,.16);color:var(--primary-ink)}
+.badge.size{background:rgba(245,147,58,.2);color:var(--primary-ink)}
+.badge.new{background:rgba(245,158,11,.22);color:var(--warn-text)}
+.badge.inst{background:rgba(29,29,27,.06);color:#4a505c}
 
-.check-btn{padding:7px 12px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--muted);cursor:pointer;font-weight:700;font-size:12px;display:inline-flex;align-items:center;gap:6px;transition:all .18s;white-space:nowrap}
+.check-btn{padding:9px 14px;min-height:40px;border-radius:9px;border:1px solid var(--line);background:#fff;color:var(--muted);cursor:pointer;font-weight:700;font-size:12px;display:inline-flex;align-items:center;gap:6px;transition:all .18s;white-space:nowrap}
 .check-btn svg{width:14px;height:14px}
 .check-btn.on{background:linear-gradient(135deg,var(--success),var(--success-2));border-color:transparent;color:#fff;box-shadow:0 4px 12px rgba(31,157,87,.3)}
-.check-btn:hover:not(.on){border-color:var(--success-2);color:var(--success);background:rgba(31,157,87,.08)}
+.check-btn:hover:not(.on){border-color:var(--success-2);color:var(--success-text);background:rgba(31,157,87,.08)}
 
-.icon-btn{width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--muted);cursor:pointer;display:inline-grid;place-items:center;transition:all .18s}
+.icon-btn{width:44px;height:44px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--muted);cursor:pointer;display:inline-grid;place-items:center;transition:all .18s}
 .icon-btn:hover{color:var(--text);border-color:var(--primary-2)}
-.icon-btn.danger:hover{color:var(--danger);border-color:var(--danger)}
-.icon-btn svg{width:15px;height:15px}
+.icon-btn.danger:hover{color:var(--danger-text);border-color:var(--danger)}
+.icon-btn svg{width:18px;height:18px}
 
 .contact{display:flex;flex-direction:column;gap:2px;font-size:12px}
 .contact a{color:var(--text);text-decoration:none}
-.contact a:hover{color:var(--primary)}
+.contact a:hover{color:var(--primary-ink)}
 .contact small{color:var(--muted);font-size:11px}
 
-.actions-cell{display:flex;gap:6px;justify-content:flex-end}
+.actions-cell{display:flex;gap:8px;justify-content:flex-end}
 
 .empty{text-align:center;padding:60px 20px;color:var(--muted)}
 .empty svg{width:54px;height:54px;opacity:.6;margin-bottom:10px}
@@ -183,8 +199,8 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 /* Toast */
 .toasts{position:fixed;bottom:24px;right:24px;display:flex;flex-direction:column;gap:10px;z-index:200}
 .toast{background:var(--card);border:1px solid var(--line);color:var(--text);padding:12px 16px;border-radius:12px;box-shadow:var(--shadow);display:flex;align-items:center;gap:10px;min-width:260px;animation:slideUp .22s ease}
-.toast.success{border-color:rgba(31,157,87,.5);color:var(--success)}
-.toast.danger{border-color:rgba(226,59,59,.5);color:var(--danger)}
+.toast.success{border-color:rgba(31,157,87,.5);color:var(--success-text)}
+.toast.danger{border-color:rgba(226,59,59,.5);color:var(--danger-text)}
 .toast svg{width:20px;height:20px;flex-shrink:0}
 @keyframes slideUp{from{transform:translateY(10px);opacity:0}to{transform:translateY(0);opacity:1}}
 
@@ -195,7 +211,7 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 ::-webkit-scrollbar-thumb:hover{background:#c2c7d1}
 
 .name-btn{all:unset;cursor:pointer;font-weight:600;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px;display:inline-block;color:var(--text)}
-.name-btn:hover{color:var(--primary);text-decoration:underline}
+.name-btn:hover{color:var(--primary-ink);text-decoration:underline}
 .photo-help{color:var(--muted);font-size:12px;margin-top:6px}
 .photo-preview-wrap{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .photo-preview{width:96px;height:96px;border-radius:16px;border:1px solid var(--line);background:#f7f8fa;display:grid;place-items:center;overflow:hidden;color:var(--muted);font-size:12px}
@@ -218,10 +234,10 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 }
 
 /* Operador / logout */
-.op-chip{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:6px 6px 6px 12px;font-size:12.5px;font-weight:600;color:var(--text)}
+.op-chip{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:4px 4px 4px 14px;min-height:48px;font-size:12.5px;font-weight:600;color:var(--text)}
 .op-chip .who{color:var(--muted)}
-.op-chip .logout{width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:#fff;color:var(--muted);cursor:pointer;display:grid;place-items:center}
-.op-chip .logout:hover{color:var(--danger);border-color:var(--danger)}
+.op-chip .logout{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:#fff;color:var(--muted);cursor:pointer;display:grid;place-items:center}
+.op-chip .logout:hover{color:var(--danger-text);border-color:var(--danger)}
 .op-chip .logout svg{width:14px;height:14px}
 
 /* Login */
@@ -232,19 +248,19 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 .login-card p.sub{margin:0 0 22px;text-align:center;color:var(--muted);font-size:13px}
 .login-card .field{margin-bottom:16px}
 .login-card .btn.primary{width:100%;justify-content:center;padding:13px}
-.login-error{color:var(--danger);font-size:13px;text-align:center;margin-top:12px;min-height:18px}
+.login-error{color:var(--danger-text);font-size:13px;text-align:center;margin-top:12px;min-height:18px}
 
 /* Seletor de evento (segmentado) */
 .eventbar{max-width:1400px;margin:18px auto 0;padding:0 24px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 .eventbar-label{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);font-weight:700;flex-shrink:0}
-.eventbar-seg{display:flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px;box-shadow:var(--shadow);flex-wrap:wrap}
-.evt-seg{display:inline-flex;align-items:center;gap:10px;background:transparent;border:none;border-radius:9px;padding:8px 14px;cursor:pointer;transition:all .16s;color:var(--muted)}
+.eventbar-seg{display:flex;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px;box-shadow:var(--shadow);flex-wrap:wrap}
+.evt-seg{display:inline-flex;align-items:center;gap:10px;background:transparent;border:none;border-radius:9px;padding:10px 14px;min-height:44px;cursor:pointer;transition:all .16s;color:var(--muted)}
 .evt-seg:hover{background:rgba(29,29,27,.04);color:var(--text)}
 .evt-seg-main{display:inline-flex;align-items:baseline;gap:7px}
 .evt-seg-nome{font-size:13.5px;font-weight:700;color:inherit}
-.evt-seg-data{font-size:11.5px;font-weight:600;color:var(--muted-2)}
+.evt-seg-data{font-size:12px;font-weight:600;color:var(--muted-2)}
 .evt-seg-count{font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;background:rgba(29,29,27,.07);color:var(--muted)}
-.evt-seg.active{background:linear-gradient(135deg,var(--primary),var(--primary-deep));box-shadow:0 3px 10px rgba(239,124,0,.3)}
+.evt-seg.active{background:linear-gradient(135deg,var(--primary-btn),var(--primary-btn-2));box-shadow:0 3px 10px rgba(168,76,0,.3)}
 .evt-seg.active .evt-seg-nome,.evt-seg.active .evt-seg-data{color:#fff}
 .evt-seg.active .evt-seg-count{background:rgba(255,255,255,.25);color:#fff}
 
@@ -252,14 +268,14 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 .readonly-banner .btn{padding:7px 12px}
 
 /* Badges de tipo */
-.tbadge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(29,29,27,.06);color:#525866;border:1px solid transparent}
-.tbadge-comprador{background:rgba(31,157,87,.15);color:#1f9d57;border-color:rgba(31,157,87,.3)}
-.tbadge-comum{background:rgba(29,29,27,.06);color:#525866}
+.tbadge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;background:rgba(29,29,27,.06);color:#4a505c;border:1px solid transparent}
+.tbadge-comprador{background:rgba(31,157,87,.18);color:var(--success-text);border-color:rgba(31,157,87,.3)}
+.tbadge-comum{background:rgba(29,29,27,.06);color:#4a505c}
 .tbadge-socio{background:rgba(124,77,255,.14);color:#6b46c1}
 .tbadge-convidado{background:rgba(14,116,144,.14);color:#0e7490}
-.tbadge-diamante{background:linear-gradient(135deg,#fff0c2,#ffd970);color:#8a5200;border-color:#f0c64a}
-.tbadge-ok{background:rgba(31,157,87,.15);color:var(--success)}
-.grupo-dia{font-size:10.5px;color:var(--muted);margin-top:3px;max-width:160px}
+.tbadge-diamante{background:linear-gradient(135deg,#fff0c2,#ffd970);color:var(--warn-text);border-color:#f0c64a}
+.tbadge-ok{background:rgba(31,157,87,.18);color:var(--success-text)}
+.grupo-dia{font-size:12px;color:var(--muted);margin-top:3px;max-width:160px}
 
 /* Avatar por tipo */
 .avatar-socio{background:linear-gradient(135deg,#8b5cf6,#6d28d9)}
@@ -279,11 +295,11 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 .kv-v{color:var(--text);text-align:right;word-break:break-word}
 
 /* Histórico */
-.hist-item{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:all .18s;text-align:left}
+.hist-item{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;min-height:56px;margin-bottom:10px;cursor:pointer;transition:all .18s;text-align:left}
 .hist-item:hover{border-color:var(--primary-2);background:#fff7ef}
 .hist-nome{font-weight:700;font-size:14px}
 .hist-sub{color:var(--muted);font-size:12.5px;margin-top:2px}
-.hist-ver{color:var(--primary);font-weight:700;font-size:13px}
+.hist-ver{color:var(--primary-ink);font-weight:700;font-size:13px}
 
 /* Modal grande (detalhe) */
 .modal-lg{max-width:780px}
@@ -291,27 +307,26 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 .detail-foto-box{display:flex;flex-direction:column;gap:8px;align-items:center}
 .detail-foto{width:104px;height:104px;border-radius:16px;object-fit:cover;border:1px solid var(--line)}
 .detail-foto-empty{display:grid;place-items:center;background:#f7f8fa;color:var(--muted);font-size:12px}
-.detail-foto-actions{display:flex;gap:6px}
-.btn.mini{padding:6px 10px;font-size:12px}
+.detail-foto-actions{display:flex;gap:8px}
 .detail-cred{margin-top:12px}
-.link-btn{all:unset;cursor:pointer;color:var(--primary);font-weight:700;text-decoration:underline}
+.link-btn{all:unset;cursor:pointer;color:var(--primary-ink);font-weight:700;text-decoration:underline}
 
-.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:18px 0 12px}
-.tabs button{background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted);font-weight:700;font-size:13px;padding:8px 12px;cursor:pointer;margin-bottom:-1px}
-.tabs button.active{color:var(--primary);border-bottom-color:var(--primary)}
+.tabs{display:flex;gap:8px;border-bottom:1px solid var(--line);margin:18px 0 12px;flex-wrap:wrap}
+.tabs button{background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted);font-weight:700;font-size:13.5px;padding:12px;min-height:48px;cursor:pointer;margin-bottom:-1px}
+.tabs button.active{color:var(--primary-ink);border-bottom-color:var(--primary-deep)}
 
 .destaques{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:14px}
 .destaque{background:#fff7ef;border:1px solid #ffe0c2;border-radius:12px;padding:10px 12px}
-.destaque .d-k{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:700}
+.destaque .d-k{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:700}
 .destaque .d-v{display:block;font-size:15px;font-weight:700;margin-top:3px;word-break:break-word}
 
 .kvs{display:flex;flex-direction:column}
 
 .cfg-panel{background:#f7f8fa;border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:14px}
 .cfg-title{font-size:12px;color:var(--muted);font-weight:700;margin-bottom:8px}
-.cfg-chips{display:flex;flex-wrap:wrap;gap:6px}
-.cfg-chip{background:#fff;border:1px solid var(--line);border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600;cursor:pointer;color:var(--muted)}
-.cfg-chip.on{background:linear-gradient(135deg,var(--primary),var(--primary-deep));border-color:transparent;color:#fff}
+.cfg-chips{display:flex;flex-wrap:wrap;gap:8px}
+.cfg-chip{background:#fff;border:1px solid var(--line);border-radius:999px;padding:8px 14px;min-height:40px;display:inline-flex;align-items:center;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--muted)}
+.cfg-chip.on{background:linear-gradient(135deg,var(--primary-btn),var(--primary-btn-2));border-color:transparent;color:#fff}
 
 .cam-wrap{margin:6px 0 14px;display:flex;flex-direction:column;gap:10px;align-items:center}
 .cam-video{width:100%;max-width:360px;border-radius:14px;border:1px solid var(--line);background:#000;transform:scaleX(-1)}
@@ -333,7 +348,7 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 
 /* Contador da sessão (no cabeçalho do scanner) */
 .scan-head-right{display:flex;align-items:center;gap:10px}
-.scan-counter{display:inline-flex;align-items:center;gap:6px;background:rgba(31,157,87,.12);color:var(--success);border:1px solid rgba(31,157,87,.3);border-radius:999px;padding:5px 11px;font-size:12.5px;font-weight:700;white-space:nowrap}
+.scan-counter{display:inline-flex;align-items:center;gap:6px;background:rgba(31,157,87,.14);color:var(--success-text);border:1px solid rgba(31,157,87,.3);border-radius:999px;padding:5px 11px;font-size:12.5px;font-weight:700;white-space:nowrap}
 .scan-counter svg{width:14px;height:14px}
 
 /* Scanner quiosque */
@@ -341,59 +356,57 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 .scan-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
 .scan-result{min-height:280px;border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:18px;text-align:center;background:#fff;transition:background .15s,border-color .15s}
 .scan-result.idle{border-style:dashed;background:var(--card-2)}
-.scan-result.ok{background:rgba(31,157,87,.08);border-color:rgba(31,157,87,.4);animation:resPop .2s ease}
-.scan-result.dup{background:rgba(245,158,11,.10);border-color:rgba(245,158,11,.45);animation:resPop .2s ease}
-.scan-result.err{background:rgba(226,59,59,.08);border-color:rgba(226,59,59,.4);animation:resPop .2s ease}
+/* Borda grossa na cor do estado: 2º sinal (forma) além do bloco de status. */
+.scan-result.ok{background:#eaf6ef;border:2px solid var(--st-ok-bg);animation:resPop .2s ease}
+.scan-result.dup{background:#fff6e2;border:2px solid #d09400;animation:resPop .2s ease}
+/* Verde e vermelho têm luminância parecida: em escala de cinza os dois blocos
+   ficariam do mesmo tom. Além do ícone (✓ x ✕), o erro ganha borda mais grossa
+   como 3º sinal — forma, não cor. */
+.scan-result.err{background:#fdecea;border:4px solid var(--st-err-bg);animation:resPop .2s ease}
 @keyframes resPop{from{transform:scale(.97);opacity:.4}to{transform:scale(1);opacity:1}}
 .scan-hint{color:var(--muted);font-size:13.5px;max-width:240px;line-height:1.5}
 .scan-hint-big{font-size:15px;font-weight:800;color:var(--text);margin-bottom:6px}
 .scan-foto{width:120px;height:120px;border-radius:18px;object-fit:cover;border:1px solid var(--line)}
 .scan-foto-ph{display:grid;place-items:center;color:#fff;font-size:42px;font-weight:800}
-.scan-nome{font-size:22px;font-weight:800;line-height:1.15}
-.scan-status{font-size:15px;font-weight:800}
-.scan-status.ok{color:var(--success)} .scan-status.dup{color:var(--warning)} .scan-status.err{color:var(--danger)}
-.scan-sub{font-size:13px;color:var(--muted);max-width:260px;font-weight:600}
+.scan-nome{font-size:24px;font-weight:800;line-height:1.15;letter-spacing:-.3px}
+/* Bloco de STATUS — elemento mais proeminente do card, legível de relance a ~50cm.
+   Fundo SÓLIDO + ícone + texto: nunca depende só da cor (WCAG 1.4.1).
+   Contraste medido: ok 7,4:1 | duplicado 10,2:1 | erro 7,9:1 (meta 7:1 sob luz forte). */
+.scan-status{display:flex;align-items:center;gap:10px;width:100%;font-size:20px;font-weight:800;
+  line-height:1.15;letter-spacing:-.2px;padding:13px 15px;border-radius:12px;text-align:left}
+.scan-status-ico{flex-shrink:0;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;
+  font-size:20px;font-weight:900;line-height:1;background:rgba(255,255,255,.24)}
+.scan-status.ok{background:var(--st-ok-bg);color:var(--st-ok-ink)}
+.scan-status.dup{background:var(--st-dup-bg);color:var(--st-dup-ink)}
+.scan-status.dup .scan-status-ico{background:rgba(0,0,0,.18)}
+.scan-status.err{background:var(--st-err-bg);color:var(--st-err-ink)}
+.scan-sub{font-size:14px;color:var(--text);max-width:100%;font-weight:600;line-height:1.4}
 .scan-tap-hint{display:none}
-@media (max-width:640px){
-  .scan-grid{grid-template-columns:1fr;position:relative}
-  /* No celular o card da pessoa vira OVERLAY sobre a câmera — aparece bem na frente
-     do operador (antes ficava embaixo, fora da área visível). Some sozinho ou ao tocar. */
-  .scan-result{position:absolute;top:0;left:0;right:0;z-index:6;margin:0;min-height:0;
-    padding:16px 16px;border-radius:14px;box-shadow:var(--shadow-pop);gap:8px}
-  .scan-result.idle{display:none}
-  .scan-result.ok{background:#e9f7ef;border-color:rgba(31,157,87,.55)}
-  .scan-result.dup{background:#fdf1de;border-color:rgba(245,158,11,.6)}
-  .scan-result.err{background:#fdeaea;border-color:rgba(226,59,59,.5)}
-  .scan-foto{width:72px;height:72px}
-  .scan-foto-ph{font-size:30px}
-  .scan-nome{font-size:20px}
-  .scan-tap-hint{display:block;margin-top:2px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
-}
 /* Ação no card de erro: credenciar direto no evento certo */
 .scan-troca{margin-top:6px}
 
 /* Últimos credenciados da sessão (com desfazer) */
 .scan-recentes{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px}
 .scan-recentes-label{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);font-weight:700;flex-shrink:0}
-.scan-recente{display:inline-flex;align-items:center;gap:8px;background:rgba(31,157,87,.08);border:1px solid rgba(31,157,87,.3);border-radius:999px;padding:5px 6px 5px 12px;font-size:12.5px;font-weight:600;color:var(--text)}
-.scan-recente em{font-style:normal;color:var(--muted-2);font-size:11px}
-.scan-recente button{border:none;background:rgba(29,29,27,.07);color:var(--muted);border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit}
-.scan-recente button:hover{background:rgba(226,59,59,.12);color:var(--danger)}
+.scan-recente{display:inline-flex;align-items:center;gap:8px;background:rgba(31,157,87,.10);border:1px solid rgba(31,157,87,.35);border-radius:999px;padding:4px 4px 4px 14px;min-height:48px;white-space:nowrap;font-size:13px;font-weight:600;color:var(--text)}
+.scan-recente em{font-style:normal;color:var(--muted-2);font-size:12px}
+.scan-recente button{border:none;background:rgba(29,29,27,.08);color:var(--text);border-radius:999px;padding:0 14px;min-height:40px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit}
+.scan-recente button:hover{background:rgba(226,59,59,.14);color:var(--danger-text)}
 
 /* Cadastro rápido de walk-in dentro do scanner */
 .scan-quick{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
-.scan-quick select{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;outline:none}
-.scan-quick .btn{padding:10px 14px}
+.scan-quick select{background:#fff;border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;min-height:48px;font-size:15px;font-family:inherit}
+.scan-quick .btn{padding:10px 16px;min-height:48px}
 
 /* Busca manual rápida dentro do scanner (quando o QR não é reconhecido) */
 .scan-manual{margin-top:14px}
 .scan-manual-input{width:100%;font-size:16px;padding:12px 14px}
-.scan-manual-list{margin-top:8px;display:flex;flex-direction:column;gap:6px;max-height:230px;overflow:auto}
-.scan-manual-item{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;padding:11px 13px;border:1px solid var(--line);border-radius:11px;background:#fff;cursor:pointer}
-.scan-manual-item:hover{background:var(--bg);border-color:var(--accent,#ef7c00)}
-.scan-manual-item .smi-nome{font-weight:600}
+.scan-manual-list{margin-top:8px;display:flex;flex-direction:column;gap:8px;max-height:230px;overflow:auto}
+.scan-manual-item{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;padding:12px 14px;min-height:56px;border:1.5px solid var(--line);border-radius:11px;background:#fff;cursor:pointer}
+.scan-manual-item:hover{background:#fff7ef;border-color:var(--primary-deep)}
+.scan-manual-item .smi-nome{font-weight:700;font-size:15px}
 .scan-manual-item .smi-meta{display:flex;align-items:center;gap:8px;flex-shrink:0}
-.smi-cred{font-size:12px;color:#1f9d57;font-weight:700}
+.smi-cred{font-size:12.5px;color:var(--success-text);font-weight:700}
 .scan-manual-empty{margin-top:8px;color:var(--muted);font-size:13px}
 
 /* QR no detalhe */
@@ -401,23 +414,23 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 .qr-img{width:96px;height:96px;border-radius:8px;background:#fff;border:1px solid var(--line)}
 .qr-info{display:flex;flex-direction:column;gap:8px}
 .qr-hint{font-size:12px;color:var(--muted)}
-.qr-btns{display:flex;gap:6px;flex-wrap:wrap}
-.qr-btns .btn{padding:7px 10px;font-size:12px}
+.qr-btns{display:flex;gap:8px;flex-wrap:wrap}
+.qr-btns .btn{padding:9px 12px;min-height:40px;font-size:12.5px}
 
 /* Filtros avançados */
 .filtros-av{max-width:1400px;margin:10px auto 0;padding:0 24px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.filtros-av select,.filtros-av input{background:var(--card);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:9px 11px;font-size:13px;font-family:inherit;outline:none}
+.filtros-av select,.filtros-av input{background:var(--card);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;min-height:44px;font-size:13px;font-family:inherit}
 .filtros-av select{min-width:200px;max-width:280px}
 .filtros-av input{min-width:160px}
 .filtros-hint{font-size:12px;color:var(--muted)}
 .filtros-chips{max-width:1400px;margin:8px auto 0;padding:0 24px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.filtro-chip{display:inline-flex;align-items:center;gap:6px;background:rgba(239,124,0,.12);border:1px solid #ffd9b0;color:#a85500;border-radius:999px;padding:5px 6px 5px 12px;font-size:12.5px}
+.filtro-chip{display:inline-flex;align-items:center;gap:6px;background:rgba(239,124,0,.14);border:1px solid #ffd9b0;color:var(--primary-ink);border-radius:999px;padding:4px 4px 4px 14px;min-height:44px;font-size:12.5px}
 .filtro-chip b{font-weight:700}
-.filtro-chip button{border:none;background:rgba(0,0,0,.08);color:var(--text);width:20px;height:20px;border-radius:50%;cursor:pointer;font-weight:700;line-height:1}
+.filtro-chip button{border:none;background:rgba(0,0,0,.08);color:var(--text);width:32px;height:32px;border-radius:50%;cursor:pointer;font-weight:700;font-size:15px;line-height:1;flex-shrink:0}
 @media (max-width:720px){.filtros-av{padding:0 16px}.filtros-hint{display:none}.filtros-chips{padding:0 16px}}
 
 /* Banner offline */
-.offline-banner{max-width:1400px;margin:12px auto 0;padding:10px 16px;border-radius:12px;background:#fff4e0;border:1px solid #ffd58a;color:#8a5200;font-size:13px;font-weight:600;display:flex;gap:8px;flex-wrap:wrap}
+.offline-banner{max-width:1400px;margin:12px auto 0;padding:10px 16px;border-radius:12px;background:var(--warn-bg);border:1.5px solid var(--warn-line);color:var(--warn-text);font-size:13px;font-weight:600;display:flex;gap:8px;flex-wrap:wrap}
 @media (min-width:721px){.offline-banner{margin:12px auto 0}}
 .offline-banner{margin-left:24px;margin-right:24px}
 
@@ -426,7 +439,7 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 .dash-card{background:#f7f8fa;border:1px solid var(--line);border-radius:12px;padding:12px}
 .dash-card span{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:700}
 .dash-card b{font-size:24px;font-weight:800}
-.dash-card.ok b{color:var(--success)} .dash-card.warn b{color:var(--warning)} .dash-card.acc b{color:var(--primary)}
+.dash-card.ok b{color:var(--success-text)} .dash-card.warn b{color:var(--warn-text)} .dash-card.acc b{color:var(--primary-ink)}
 .bar-row{display:flex;align-items:center;gap:10px;margin:6px 0;font-size:12.5px}
 .bar-label{width:120px;flex-shrink:0;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bar-track{flex:1;height:12px;background:rgba(29,29,27,.06);border-radius:8px;overflow:hidden}
@@ -435,27 +448,27 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 .dash-exports{display:flex;gap:8px;flex-wrap:wrap}
 .audit-row{display:grid;grid-template-columns:96px 1fr 110px;gap:8px;align-items:baseline;padding:6px 0;border-bottom:1px dashed rgba(29,29,27,.06);font-size:12.5px}
 .audit-acao{font-weight:700;font-size:11px;text-transform:uppercase;color:var(--muted)}
-.acao-credenciar{color:var(--success)} .acao-descredenciar{color:var(--warning)}
-.acao-criar,.acao-editar{color:var(--primary)} .acao-excluir{color:var(--danger)}
+.acao-credenciar{color:var(--success-text)} .acao-descredenciar{color:var(--warn-text)}
+.acao-criar,.acao-editar{color:var(--primary-ink)} .acao-excluir{color:var(--danger-text)}
 .audit-nome{font-weight:600}
 .audit-op{color:var(--muted)}
-.audit-quando{grid-column:1 / -1;color:var(--muted);font-size:11px;margin-top:-2px}
+.audit-quando{grid-column:1 / -1;color:var(--muted);font-size:12px;margin-top:-2px}
 @media (max-width:560px){.dash-cards{grid-template-columns:repeat(2,1fr)}}
 
 /* Configurações */
 .ev-row,.ev-form{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
-.ev-row input,.ev-form input,.ev-form select{background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit}
+.ev-row input,.ev-form input,.ev-form select{background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-height:44px;font-size:13px;font-family:inherit}
 .ev-row input:first-child{flex:1;min-width:140px}
 .ev-form input:first-child{flex:1;min-width:160px}
 .ev-chk{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);font-weight:600}
 .op-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
-.op-tag{display:inline-flex;align-items:center;gap:6px;background:#fff7ef;border:1px solid #ffe0c2;border-radius:999px;padding:5px 6px 5px 12px;font-size:13px;font-weight:600}
-.op-tag button{border:none;background:rgba(0,0,0,.08);color:var(--text);width:20px;height:20px;border-radius:50%;cursor:pointer;font-weight:700;line-height:1}
+.op-tag{display:inline-flex;align-items:center;gap:6px;background:#fff7ef;border:1px solid #ffe0c2;border-radius:999px;padding:4px 4px 4px 14px;min-height:44px;font-size:13px;font-weight:600}
+.op-tag button{border:none;background:rgba(0,0,0,.08);color:var(--text);width:32px;height:32px;border-radius:50%;cursor:pointer;font-weight:700;font-size:15px;line-height:1;flex-shrink:0}
 
 /* Badge de grupo (SIM/NÃO) */
-.gbadge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(29,29,27,.06);color:#525866}
-.gbadge.gsim{background:rgba(31,157,87,.15);color:var(--success)}
-.gbadge.gnao{background:rgba(226,59,59,.12);color:var(--danger)}
+.gbadge{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;background:rgba(29,29,27,.06);color:#4a505c}
+.gbadge.gsim{background:rgba(31,157,87,.18);color:var(--success-text)}
+.gbadge.gnao{background:rgba(226,59,59,.14);color:var(--danger-text)}
 
 /* Chips do scanner (camisa / grupo) */
 .scan-extras{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:2px}
@@ -509,9 +522,9 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
   table.tbl tbody td:nth-child(1){order:3;flex:1 1 100%}
   .name,.name-sub,.name-contact{max-width:none;white-space:normal}
   .name-contact{flex-wrap:wrap}
-  .check-btn{width:100%;justify-content:center;padding:13px;font-size:14px;border-radius:10px}
+  .check-btn{width:100%;justify-content:center;padding:14px;min-height:52px;font-size:15px;border-radius:10px}
   .actions-cell{gap:8px}
-  .icon-btn{width:38px;height:38px}
+  .icon-btn{width:48px;height:48px}
 }
 
 @media (max-width:480px){
@@ -546,23 +559,23 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 
 /* ============ Perfil: nível THB + possível comprador (Arthur) ============ */
 /* Cores por nível de instrução dentro do THB (base → topo). */
-.detail-nivel,.perfil-nivel,.scan-nivel{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.2px;
-  background:rgba(29,29,27,.06);color:#525866;border:1px solid transparent}
-.nivel-thb,.detail-nivel{background:rgba(239,124,0,.12);color:var(--primary-deep)}
-.nivel-aurum{background:linear-gradient(135deg,#fff0c2,#ffd970);color:#8a5200;border-color:#f0c64a}
+.detail-nivel,.perfil-nivel,.scan-nivel{display:inline-flex;align-items:center;padding:4px 11px;border-radius:999px;font-size:12px;font-weight:800;letter-spacing:.2px;
+  background:rgba(29,29,27,.06);color:#4a505c;border:1px solid transparent}
+.nivel-thb,.detail-nivel{background:rgba(239,124,0,.16);color:var(--primary-ink)}
+.nivel-aurum{background:linear-gradient(135deg,#fff0c2,#ffd970);color:var(--warn-text);border-color:#f0c64a}
 .nivel-platina{background:rgba(120,144,156,.16);color:#455a64}
 .nivel-diamante{background:rgba(37,99,235,.14);color:#1d4ed8}
 .nivel-diamante-vermelho{background:rgba(220,38,38,.14);color:#b91c1c}
 .nivel-exaluno{background:rgba(29,29,27,.05);color:var(--muted-2)}
 
 /* Ingresso comprado (DIAMOND/VIP/PLATEIA) — separado do nível. */
-.detail-ingresso,.scan-ingresso{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:800;border:1px solid transparent}
+.detail-ingresso,.scan-ingresso{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:800;border:1px solid transparent}
 .ing-diamond{background:rgba(37,99,235,.12);color:#1d4ed8}
 .ing-vip{background:rgba(147,51,234,.12);color:#7c3aed}
-.ing-plateia{background:rgba(29,29,27,.06);color:#525866}
+.ing-plateia{background:rgba(29,29,27,.06);color:#4a505c}
 
 /* Selo "possível comprador". */
-.detail-comprador-selo,.scan-comprador-selo{display:inline-flex;align-items:center;gap:5px;background:rgba(31,157,87,.14);color:var(--success);
+.detail-comprador-selo,.scan-comprador-selo{display:inline-flex;align-items:center;gap:5px;background:rgba(31,157,87,.16);color:var(--success-text);
   border:1px solid rgba(31,157,87,.35);border-radius:999px;padding:3px 11px;font-size:11.5px;font-weight:800}
 .scan-comprador-selo{font-size:14px;padding:5px 14px;align-self:center}
 .detail-top-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
@@ -577,61 +590,120 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 .scan-linha{display:flex;justify-content:space-between;gap:12px;font-size:13.5px;border-bottom:1px dashed var(--line);padding-bottom:4px}
 .scan-linha span{color:var(--muted);font-weight:600;flex-shrink:0}
 .scan-linha b,.scan-linha a{color:var(--text);font-weight:700;text-align:right;overflow-wrap:anywhere}
-.scan-linha a{color:var(--primary-deep);text-decoration:none}
+.scan-linha a{color:var(--primary-ink);text-decoration:none}
 .scan-card-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;width:100%;margin-top:2px}
 .scan-act{flex:1;min-width:150px;justify-content:center}
 .scan-result.is-comprador{box-shadow:inset 0 0 0 2px rgba(31,157,87,.35)}
 .scan-hint-min{display:block;margin-top:8px;font-size:12px;color:var(--muted-2)}
 
-/* No celular o card cobre a câmera; com mais conteúdo, precisa rolar. */
+/* ================================================================
+   CELULAR — scanner em 3 zonas fixas, sem overlay (onda 2).
+   O card do aluno PERSISTE até o próximo QR, mas em FLUXO: nunca mais
+   cobre o visor da câmera nem o campo de busca manual.
+     zona 1  visor  — topo, sempre mirável
+     zona 2  card   — meio, cresce até 58% e rola por dentro (.scan-perfil)
+     zona 3  busca  — base, sempre alcançável com o card aberto
+   O modal vira tela cheia (overlay sem padding + 100dvh) para o teclado do
+   celular não empurrar a busca para fora.
+   ================================================================ */
 @media (max-width:760px){
-  .scan-result{max-height:78vh;overflow-y:auto;justify-content:flex-start}
-  .scan-card-head{flex-direction:row}
-  .scan-foto{width:60px;height:60px}
-  .scan-nome{font-size:18px}
-  .scan-perfil{max-width:100%}
-  .scan-act{font-size:13px;min-width:130px}
+  .scanner-overlay{padding:0;align-items:stretch;overflow:hidden}
+  .scanner-modal{width:100%;max-width:none;height:100vh;height:100dvh;
+    margin:0;border:0;border-radius:0;display:flex;flex-direction:column;animation:none}
+  .scanner-modal .modal-head,.scanner-modal .modal-foot{flex:0 0 auto}
+  .scanner-modal .modal-body{flex:1 1 auto;min-height:0;max-height:none;overflow:hidden;
+    display:flex;flex-direction:column;gap:10px;padding:10px 12px}
+  /* Avisos/ajuda podem encolher e rolar, mas não empurram o visor para fora. */
+  .scanner-modal .scan-dia-errado{flex:0 0 auto;margin-bottom:0}
+  .scanner-modal .scan-ajuda-painel{flex:0 1 auto;min-height:0;overflow-y:auto;margin-bottom:0}
+
+  /* `.scanner-modal` no seletor de propósito: a regra base `.scan-sem-camera`
+     (display:grid) vive DEPOIS neste arquivo e, com a mesma especificidade,
+     venceria a media query — os dois blocos ficavam empilhados na mesma célula. */
+  .scan-grid,.scanner-modal .scan-sem-camera{display:flex;flex-direction:column;gap:10px;
+    flex:1 1 auto;min-height:0;position:static;overflow:hidden}
+
+  /* zona 1 — visor */
+  .scan-wrap{flex:1 1 auto;min-height:120px}
+  .scan-video{width:100%;height:100%;max-width:none;object-fit:cover}
+
+  /* zona 2 — card em fluxo (era position:absolute z-index:6) */
+  .scan-result{position:static;flex:0 1 auto;min-height:0;max-height:58%;overflow-y:auto;
+    justify-content:flex-start;align-items:center;padding:12px;gap:8px;box-shadow:none}
+  .scan-result.idle{padding:10px 12px}
+  .scan-hint{max-width:100%;font-size:13px}
+  .scan-hint-min{display:none}
+  /* Nome e status NUNCA rolam: só os detalhes do perfil deslizam.
+     flex (e não height:100%) — o pai tem altura automática, então % não resolveria
+     e o rodapé do card era cortado no meio do botão. */
+  .scan-card{flex:1 1 auto;min-height:0;gap:8px}
+  .scan-card-head,.scan-status,.scan-sub,.scan-card-actions,.scan-troca,.scan-continuar{flex:0 0 auto}
+  .scan-card-head{flex-direction:row;justify-content:flex-start}
+  .scan-perfil{flex:1 1 auto;min-height:0;overflow-y:auto;max-width:100%}
+  .scan-foto{width:64px;height:64px}
+  .scan-foto-ph{font-size:28px}
+  .scan-nome{font-size:20px}
+  .scan-status{font-size:19px;padding:11px 13px}
+  .scan-act{font-size:13.5px;min-width:130px}
+
+  /* Sem câmera não há visor a preservar: a coluna inteira rola e cada bloco fica
+     na altura natural (com `flex:0 1 auto` o card era espremido a 28px).
+     `order:-1` sobe o resultado da busca manual acima do passo a passo da câmera.
+     Vem DEPOIS das regras da zona 2 de propósito — mesma cascata, seletor mais forte. */
+  .scanner-modal .scan-sem-camera{overflow-y:auto}
+  .scanner-modal .scan-sem-camera>*{flex:0 0 auto}
+  .scan-sem-camera .scan-result{flex:0 0 auto;max-height:none;overflow:visible;order:-1}
+  .scan-sem-camera .scan-card,.scan-sem-camera .scan-perfil{flex:0 0 auto;overflow:visible}
+
+  /* zona 3 — busca manual sempre visível na base */
+  .scan-recentes{flex:0 0 auto;flex-wrap:nowrap;overflow-x:auto;margin-top:0;padding-bottom:2px}
+  /* flex:0 0 auto — a busca NUNCA encolhe: é o caminho de recuperação quando o QR
+     não lê. Quem cede espaço é o visor/card acima. Lista limitada para o bloco
+     inteiro caber acima do rodapé. */
+  .scan-manual{flex:0 0 auto;margin-top:0}
+  .scan-manual-list{max-height:min(34vh,232px)}
+  .scan-manual-empty{max-height:34vh;overflow-y:auto}
 }
 
 /* ---- Aba Perfil & Presença do painel ---- */
 .perfil-tab-wrap{overflow-x:auto}
 .perfil-tbl{width:100%;border-collapse:collapse;font-size:13px}
-.perfil-tbl th{background:#f7f8fa;color:var(--muted);text-align:center;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:9px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+.perfil-tbl th{background:#f7f8fa;color:var(--muted);text-align:center;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:9px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
 .perfil-tbl th:first-child{text-align:left}
 .perfil-tbl td{padding:9px 8px;text-align:center;border-bottom:1px solid var(--line)}
 .perfil-tbl td:first-child{text-align:left}
-.perfil-tbl .ok-num{color:var(--success);font-weight:700}
-.perfil-tbl .warn-num{color:var(--warning);font-weight:700}
+.perfil-tbl .ok-num{color:var(--success-text);font-weight:700}
+.perfil-tbl .warn-num{color:var(--warn-text);font-weight:700}
 .perfil-recortes{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .perfil-recorte{background:#f7f8fa;border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center;display:flex;flex-direction:column;gap:8px;align-items:center}
-.perfil-recorte .pr-num{font-size:30px;font-weight:800;color:var(--primary-deep)}
+.perfil-recorte .pr-num{font-size:30px;font-weight:800;color:var(--primary-ink)}
 .perfil-recorte .pr-lbl{font-size:12.5px;color:var(--muted);font-weight:600;line-height:1.35}
-.btn.mini{padding:5px 12px;font-size:12px}
+.btn.mini{padding:8px 14px;min-height:40px;font-size:12.5px}
 .perfil-nota{margin-top:14px;font-size:12px;color:var(--muted-2);font-style:italic;line-height:1.4}
 @media (max-width:560px){.perfil-recortes{grid-template-columns:1fr}}
-.scan-continuar{background:none;border:none;color:var(--muted);font-size:12.5px;font-weight:700;cursor:pointer;padding:6px 10px;margin-top:2px}
-.scan-continuar:hover{color:var(--primary-deep)}
+.scan-continuar{background:#fff;border:1.5px solid var(--line);border-radius:10px;color:var(--text);font-size:14px;font-weight:700;cursor:pointer;padding:0 16px;min-height:48px;width:100%;margin-top:2px;font-family:inherit}
+.scan-continuar:hover{color:var(--primary-ink)}
 
 /* Sinais de perfil do crachá (possível Aurum/HM/renov., sócio vai sozinho) */
 .scan-sinais,.detail-sinais{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .detail-sinais{margin:10px 0 4px}
-.scan-sinal,.detail-sinal{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;
+.scan-sinal,.detail-sinal{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;
   padding:3px 9px;border-radius:999px;background:rgba(29,29,27,.05);color:var(--muted);border:1px solid transparent;white-space:nowrap}
 .scan-sinal b,.detail-sinal b{font-weight:800}
-.scan-sinal.sim,.detail-sinal.sim{background:rgba(31,157,87,.13);color:var(--success);border-color:rgba(31,157,87,.25)}
+.scan-sinal.sim,.detail-sinal.sim{background:rgba(31,157,87,.16);color:var(--success-text);border-color:rgba(31,157,87,.25)}
 .scan-sinal.nao,.detail-sinal.nao{background:rgba(29,29,27,.05);color:var(--muted-2)}
 
 /* ============ Ficha do aluno (DetailModal) reorganizada ============ */
 /* Pílula de status no topo do cabeçalho (destaque imediato). */
 .detail-status-pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;padding:4px 12px;border-radius:999px;margin-bottom:8px}
 .detail-status-pill svg{width:15px;height:15px}
-.detail-status-pill.ok{background:rgba(31,157,87,.14);color:var(--success)}
-.detail-status-pill.pend{background:rgba(245,158,11,.14);color:var(--warning)}
+.detail-status-pill.ok{background:rgba(31,157,87,.16);color:var(--success-text)}
+.detail-status-pill.pend{background:rgba(245,158,11,.22);color:var(--warn-text)}
 
 /* Linha de ações principais (credenciar + comprador), lado a lado e cheias. */
 .detail-actions-row{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 16px}
 .detail-act{flex:1;min-width:180px;justify-content:center}
-.btn.comprador-on{background:rgba(31,157,87,.14);color:var(--success);border:1px solid rgba(31,157,87,.4)}
+.btn.comprador-on{background:rgba(31,157,87,.16);color:var(--success-text);border:1px solid rgba(31,157,87,.4)}
 
 /* Seções com título — dão a hierarquia que faltava. */
 .detail-sec{margin:0 0 16px}
@@ -644,7 +716,7 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 .detail-qual .dq-k{font-size:11px;color:var(--muted);font-weight:600;line-height:1.2}
 .detail-qual .dq-v{font-size:14px;font-weight:800}
 .detail-qual.sim{background:rgba(31,157,87,.10);border-color:rgba(31,157,87,.30)}
-.detail-qual.sim .dq-v{color:var(--success)}
+.detail-qual.sim .dq-v{color:var(--success-text)}
 .detail-qual.nao{background:#f7f8fa}
 .detail-qual.nao .dq-v{color:var(--muted-2)}
 
@@ -653,7 +725,7 @@ tr.credenciado .avatar{background:linear-gradient(135deg,var(--success),var(--su
 .di{display:flex;flex-direction:column;gap:1px;padding:7px 0;border-bottom:1px dashed rgba(29,29,27,.07);min-width:0}
 .di-k{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
 .di-v{font-size:14px;color:var(--text);font-weight:600;word-break:break-word}
-a.di-v{color:var(--primary-deep);text-decoration:none}
+a.di-v{color:var(--primary-ink);text-decoration:none}
 .detail-invite-inline{margin-top:10px;font-size:13.5px}
 .detail-invite-inline .di-k{display:inline;text-transform:none;letter-spacing:0;font-size:12.5px;margin-right:4px}
 .detail-obs{margin-top:10px;font-size:13px;color:var(--text);line-height:1.5}
@@ -668,20 +740,20 @@ a.di-v{color:var(--primary-deep);text-decoration:none}
 
 /* ============ Dashboard novo (métricas de credenciamento) ============ */
 .dash-cards-3{grid-template-columns:repeat(3,1fr)}
-.dash-card.danger b{color:var(--danger)}
+.dash-card.danger b{color:var(--danger-text)}
 .bar-fill.ok{background:linear-gradient(90deg,var(--success-2),var(--success))}
 .bar-fill.acc{background:linear-gradient(90deg,var(--primary-2),var(--primary-deep))}
-.dash-legenda{font-size:11px;color:var(--muted-2);margin:4px 0 2px;font-style:italic}
+.dash-legenda{font-size:12px;color:var(--muted-2);margin:4px 0 2px;font-style:italic}
 .dash-actions-inline{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 2px}
 @media (max-width:560px){.dash-cards-3{grid-template-columns:1fr}}
 
 /* ============ Navegação por abas de página (Credenciamento | Dashboard) ============ */
-.view-nav{max-width:1400px;margin:16px auto 0;padding:0 24px;display:flex;gap:4px;border-bottom:1px solid var(--line)}
+.view-nav{max-width:1400px;margin:16px auto 0;padding:0 24px;display:flex;gap:8px;border-bottom:1px solid var(--line)}
 .view-tab{background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted);font-weight:700;font-size:14px;
-  padding:10px 16px;cursor:pointer;margin-bottom:-1px;display:inline-flex;align-items:center;gap:8px;transition:color .15s}
+  padding:12px 16px;min-height:48px;cursor:pointer;margin-bottom:-1px;display:inline-flex;align-items:center;gap:8px;transition:color .15s}
 .view-tab svg{width:16px;height:16px}
 .view-tab:hover{color:var(--text)}
-.view-tab.active{color:var(--primary);border-bottom-color:var(--primary)}
+.view-tab.active{color:var(--primary-ink);border-bottom-color:var(--primary-deep)}
 
 /* Dashboard como página (não modal) — mesma largura/respiro do resto do app. */
 .dash-page{max-width:1400px;margin:0 auto;padding:20px 24px 40px}
@@ -698,4 +770,167 @@ a.di-v{color:var(--primary-deep);text-decoration:none}
 .bar-base{height:100%;background:rgba(31,157,87,.28);border-radius:8px;overflow:hidden;min-width:3px}
 .bar-val{width:auto;min-width:56px;white-space:nowrap}
 .bar-val b{color:var(--text)}
-.bar-cred{color:var(--success);font-weight:700}
+.bar-cred{color:var(--success-text);font-weight:700}
+
+/* ============================================================
+   Robustez do dia D (onda 1) — avisos, ajuda e estados de erro.
+   Bloco isolado: não altera nenhuma regra existente.
+   ============================================================ */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+/* Selo "HOJE" na aba do dia corrente (EventBar) */
+.evt-seg-hoje{font-size:11px;font-weight:800;letter-spacing:.6px;padding:3px 8px;border-radius:999px;background:var(--success-text);color:#fff;text-transform:uppercase}
+.evt-seg.active .evt-seg-hoje{background:#fff;color:var(--success-text)}
+.evt-seg.hoje:not(.active){box-shadow:inset 0 0 0 2px var(--success-text)}
+
+/* Está credenciando um dia que não é o de hoje */
+.dia-errado-banner{max-width:1400px;margin:12px 24px 0;padding:12px 16px;border-radius:12px;background:var(--danger-bg);border:1.5px solid var(--danger-line);color:var(--danger-text);font-size:14px;font-weight:700;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.dia-errado-banner .btn{min-height:48px}
+
+/* Pendências de sincronização e conexão, dentro do scanner */
+.scan-pend{display:inline-flex;align-items:center;gap:6px;background:var(--warn-bg);color:var(--warn-text);border:1.5px solid var(--warn-line);border-radius:999px;padding:5px 11px;font-size:12.5px;font-weight:800;white-space:nowrap}
+.scan-pend.off{background:var(--danger-bg);color:var(--danger-text);border-color:var(--danger-line)}
+
+/* Botão de ajuda "?" no cabeçalho do scanner */
+.scan-ajuda-btn{width:48px;height:48px;flex-shrink:0;border-radius:12px;border:1.5px solid var(--line);background:#fff;color:var(--muted);font-size:19px;font-weight:800;cursor:pointer;display:inline-grid;place-items:center;line-height:1}
+.scan-ajuda-btn:hover{color:var(--text);border-color:var(--primary-2)}
+.scan-ajuda-btn[aria-expanded="true"]{background:var(--primary);border-color:var(--primary-deep);color:#fff}
+.scan-ajuda-btn:focus-visible,.scan-cam-erro .btn:focus-visible,.estado-erro .btn:focus-visible{outline:3px solid var(--primary-deep);outline-offset:2px}
+
+/* Painel de ajuda rápida (texto puro — funciona offline) */
+.scan-ajuda-painel{margin-bottom:14px;border:1.5px solid var(--line);border-radius:14px;background:var(--card-2);padding:14px 16px}
+.scan-ajuda-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.scan-ajuda-head strong{font-size:15px}
+.scan-ajuda-head .btn{min-height:48px}
+.scan-ajuda-lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:11px}
+.scan-ajuda-lista li{display:flex;flex-direction:column;gap:3px;border-left:3px solid var(--primary);padding-left:11px}
+.scan-ajuda-lista b{font-size:14px;font-weight:800;color:var(--text)}
+.scan-ajuda-lista span{font-size:13.5px;line-height:1.45;color:#454b57}
+
+/* Aviso de dia errado dentro do scanner (a EventBar fica coberta pelo modal) */
+.scan-dia-errado{margin-bottom:12px;padding:12px 14px;border-radius:12px;background:var(--danger-bg);border:1.5px solid var(--danger-line);color:var(--danger-text);font-size:14px;font-weight:700;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.scan-dia-errado .btn{min-height:48px}
+
+/* Câmera bloqueada: ensina o caminho e diz que a busca manual continua funcionando */
+.scan-cam-erro{border:1.5px solid var(--line);border-radius:14px;background:var(--card-2);padding:18px}
+.sce-titulo{font-size:16px;font-weight:800;color:var(--text);margin-bottom:8px}
+.sce-ok{font-size:14px;line-height:1.5;color:var(--success-text);background:rgba(31,157,87,.12);border:1px solid rgba(31,157,87,.35);border-radius:10px;padding:10px 12px}
+.sce-passos-label{margin-top:14px;font-size:13px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.sce-passos{margin:8px 0 0;padding-left:22px;font-size:14px;line-height:1.6;color:#454b57}
+.sce-retry{margin-top:14px;min-height:48px}
+
+/* "Falhou" nunca pode parecer "está vazio" */
+.estado-erro{border:1.5px solid var(--danger-line);background:var(--danger-bg);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+.ee-titulo{font-size:15px;font-weight:800;color:var(--danger-text)}
+.ee-sub{font-size:13.5px;line-height:1.45;color:var(--danger-text)}
+.estado-erro .btn{min-height:48px}
+
+/* Motivo da queda de sessão na tela de login */
+.login-aviso{margin:2px 0 14px;padding:10px 12px;border-radius:10px;background:var(--warn-bg);border:1.5px solid var(--warn-line);color:var(--warn-text);font-size:13px;font-weight:700;line-height:1.4;text-align:left}
+
+@media (max-width:720px){
+  .dia-errado-banner{margin-left:16px;margin-right:16px;align-items:stretch;flex-direction:column}
+  .dia-errado-banner .btn,.scan-dia-errado .btn{justify-content:center;width:100%}
+  .scan-dia-errado{flex-direction:column;align-items:stretch}
+  .scan-pend{font-size:12px;padding:5px 9px}
+}
+
+/* Scanner sem câmera: instruções + o mesmo card de resultado da busca manual.
+   Aqui o card NÃO pode ser overlay (não há vídeo embaixo) — fica em fluxo normal. */
+.scan-sem-camera{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+@media (max-width:640px){
+  .scan-sem-camera{grid-template-columns:1fr}
+  .scan-sem-camera .scan-result{position:static;box-shadow:none}
+  .scan-sem-camera .scan-result.idle{display:none}
+}
+
+/* Celular: com contador + pendências + ajuda + fechar, o cabeçalho do scanner
+   estourava a largura e o "?" e o X saíam da tela. Título numa linha, controles noutra. */
+@media (max-width:640px){
+  .scanner-modal .modal-head{flex-wrap:wrap;gap:6px;padding:8px 12px}
+  .scanner-modal .modal-head h3{flex:1 1 100%;font-size:14px;line-height:1.2}
+  .scanner-modal .scan-head-right{flex:1 1 100%;justify-content:flex-start;flex-wrap:wrap;gap:8px}
+  /* Cabeçalho enxuto = mais tela para o visor e para o card. */
+  .scanner-modal .scan-counter,.scanner-modal .scan-pend{padding:4px 9px;font-size:12px}
+  .scanner-modal .scan-ajuda-btn{width:48px;height:48px}
+  .scanner-modal .modal-foot{padding:8px 12px}
+  /* Nome longo não pode empurrar a pílula de "Últimos" para fora da linha. */
+  .scan-recente{max-width:62vw}
+  .scan-recente>span,.scan-recente{overflow:hidden;text-overflow:ellipsis}
+}
+
+/* ============================================================
+   Onda 2 — design, contraste e alvos de toque (03/08).
+   Bloco final: fecha os buracos das regras acima sem reescrevê-las.
+   ============================================================ */
+
+/* --- Foco sempre visível. Várias regras acima usam outline:none sem
+   substituto (.ctl, .filtros-av select/input, .scan-quick select). --- */
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,
+textarea:focus-visible,[tabindex]:focus-visible,summary:focus-visible{
+  outline:3px solid var(--primary-ink);outline-offset:2px}
+
+/* --- Alvo de toque: 48px em qualquer aparelho de toque (Material 48dp).
+   Ação primária 56px — é o que o operador acerta em pé, olhando o crachá. --- */
+/* Mouse (desktop): 44px é o piso — nenhum alvo abaixo disso. */
+.filter button,.ctl,.check-btn,.btn.mini,.qr-btns .btn,.cfg-chip{min-height:44px}
+.op-chip .logout{width:44px;height:44px}
+.name-btn{padding:6px 0;min-height:32px}
+.name-contact a,.nc-mail,.scan-linha a,a.di-v{display:inline-block;padding:4px 0;min-height:26px}
+
+@media (pointer:coarse),(max-width:760px){
+  .btn,.ctl,.check-btn,.filter button,.cfg-chip,.btn.mini,.qr-btns .btn,
+  .ev-row input,.ev-form input,.ev-form select,.filtros-av select,.filtros-av input,
+  .scan-manual-input,.field input,.field select{min-height:48px}
+  .btn.primary{min-height:56px;font-size:14.5px}
+  .icon-btn{width:48px;height:48px}
+  .search-clear{width:48px;height:48px;right:4px}
+  .op-chip .logout{width:48px;height:48px}
+  .filtro-chip button,.op-tag button{width:40px;height:40px}
+  .scan-recente button{min-height:48px}
+  .scan-manual-item{min-height:60px}
+  .scan-continuar{min-height:52px}
+  .evt-seg{min-height:48px}
+  .hist-item{min-height:60px}
+  /* Nome da lista e links de contato: viram alvos de dedo, não de mouse. */
+  .name-btn{min-height:48px;padding:8px 0;display:flex;align-items:center}
+  .name-contact a,.nc-mail,.scan-linha a,a.di-v{min-height:44px;padding:12px 0;display:inline-flex;align-items:center}
+}
+
+/* --- Hierarquia do card: o bloco de STATUS é o mais proeminente. A ação
+   secundária ("marcar possível comprador") deixa de usar o laranja cheio,
+   que gritava mais alto que o próprio resultado do credenciamento. --- */
+.scan-act.btn.primary{background:#fff;color:var(--primary-ink);border:1.5px solid var(--primary-ink);
+  box-shadow:none;font-weight:700}
+.scan-act.btn.primary:hover{background:#fff7ef;filter:none}
+
+/* --- Card do scanner: dado de decisão grande e legível de relance. --- */
+.scan-badges .tbadge,.scan-badges .scan-nivel,.scan-badges .scan-ingresso{font-size:13px;padding:5px 12px}
+.scan-card-id{display:flex;flex-direction:column;gap:2px}
+.scan-chip{font-weight:600}
+.scan-linha{font-size:14px}
+
+/* --- Lista em cards no celular: as 2 ações agora têm 48px cada. --- */
+@media (max-width:560px){
+  /* min-width:0 + nome que quebra linha: sem isto a célula do nome tem min-content
+     maior que a tela e o app inteiro ganha 120px de rolagem horizontal em 360px. */
+  table.tbl tbody td:nth-child(2){padding-right:118px;min-width:0}
+  .name-btn{white-space:normal;max-width:none;overflow:visible;text-align:left}
+  .audit-row{grid-template-columns:1fr auto;gap:4px 10px}
+  .audit-acao{grid-column:1 / -1}
+}
+@media (max-width:640px){
+  .summary-metrics{grid-template-columns:1fr 1fr}
+}
+
+/* --- Respeita quem desliga animação no sistema. --- */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;
+    transition-duration:.001ms !important;scroll-behavior:auto !important}
+}
+
+/* --- Campos de formulário e caixas de marcar também são alvos de toque. --- */
+.field input,.field select,.field textarea{min-height:44px}
+.field textarea{min-height:80px}
+.rep-check,.ev-chk{min-height:44px;align-items:center}
+.rep-check input,.ev-chk input{width:22px;height:22px;margin-top:0;flex-shrink:0}

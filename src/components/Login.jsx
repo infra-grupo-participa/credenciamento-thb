@@ -6,7 +6,7 @@ const MENSAGENS = {
   informe_o_nome: 'Informe seu nome.',
 };
 
-export default function Login({ onLogin }) {
+export default function Login({ onLogin, aviso = '' }) {
   const [operador, setOperador] = useState(auth.operador);
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState('');
@@ -36,6 +36,8 @@ export default function Login({ onLogin }) {
         <img className="brand-logo-lg" src="/thb-logo.png" alt="Time Holding Brasil" />
         <h2>Credenciamento THB</h2>
         <p className="sub">Entre para começar o atendimento</p>
+        {/* Sessão caiu: diz o motivo em vez de a tela de login aparecer do nada. */}
+        {aviso && <div className="login-aviso" role="status">{aviso}</div>}
         <div className="field">
           <label>Seu nome (operador)</label>
           <input value={operador} onChange={(e) => setOperador(e.target.value)}
