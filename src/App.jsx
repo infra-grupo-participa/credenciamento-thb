@@ -15,12 +15,17 @@ import { enfileirar, flushFila, tamanhoFila } from './offline.js';
 import { tipoLabel, tipoCls } from './tipos.js';
 import { nivelLabel, ingressoLabel, ehPossivelComprador, faturamentoDe } from './perfil.js';
 import { linhasExport, aplicarQrImagem } from './exportRows.js';
+import { useOcioso } from './useOcioso.js';
 import {
   IconImport, IconExport, IconPlus, IconSearch, IconCheck, IconSquare, IconEdit, IconLogout, IconReset,
   IconQr, IconMore, IconChart, IconSettings, IconClose,
 } from './icons.jsx';
 
 const POLL_MS = 5000;
+// Tela parada há 10 min: para de consultar o servidor até alguém encostar nela.
+const OCIOSO_MS = 10 * 60 * 1000;
+// A lista de eventos muda uma vez por semana, não a cada 15 s.
+const POLL_EVENTOS_MS = 60000;
 
 const norm = (s) => (s || '').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 const initials = (n) => {
@@ -168,7 +173,15 @@ function Credenciamento({ operador, onLogout }) {
     };
   }, []);
 
-  const { data: eventosData } = useQuery({ queryKey: ['eventos'], queryFn: api.eventos, refetchInterval: 15000 });
+  // Enquanto ninguém encosta na tela, nenhuma das duas listas consulta o servidor.
+  const ocioso = useOcioso(OCIOSO_MS);
+  // Ao voltar da pausa, ressincroniza na hora em vez de esperar o próximo tick.
+  useEffect(() => { if (!ocioso) qc.invalidateQueries({ queryKey: ['participantes'] }); }, [ocioso, qc]);
+
+  const { data: eventosData } = useQuery({
+    queryKey: ['eventos'], queryFn: api.eventos,
+    refetchInterval: ocioso ? false : POLL_EVENTOS_MS,
+  });
   const eventos = eventosData?.eventos || [];
 
   // Abre SEMPRE no dia de hoje (evento cuja `data` é a de hoje). Num evento de 3 dias,
@@ -195,10 +208,23 @@ function Credenciamento({ operador, onLogout }) {
     queryFn: async () => {
       const prev = qc.getQueryData(['participantes', eventoId]);
       const d = await api.listar(eventoId, prev?.updatedAt, prev?.list?.length);
-      return d?.unchanged && prev ? prev : d;
+      if (d?.unchanged && prev) return prev;
+      // `delta`: vieram só as linhas alteradas — costura por id sobre a lista que
+      // já está na mão. A ordem não importa aqui, a tela reordena sozinha.
+      if (d?.delta && prev?.list) {
+        const porId = new Map(prev.list.map((p) => [p.id, p]));
+        for (const p of d.changed) porId.set(p.id, p);
+        const list = [...porId.values()];
+        // Trava: se o resultado do merge não bate com a contagem do servidor,
+        // alguma linha escapou do delta. Em vez de exibir lista furada no balcão,
+        // busca tudo de novo (custa banda uma vez, não mente sobre quem chegou).
+        if (list.length === d.count) return { list, updatedAt: d.updatedAt };
+        return await api.listar(eventoId);
+      }
+      return d;
     },
     enabled: !!eventoId,
-    refetchInterval: POLL_MS,
+    refetchInterval: ocioso ? false : POLL_MS,
     refetchOnWindowFocus: true,
   });
   const lista = data?.list || [];

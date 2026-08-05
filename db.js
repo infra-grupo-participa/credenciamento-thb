@@ -86,6 +86,9 @@ const codeSeguro = (c) => (CODE_RE.test(String(c || '')) ? String(c) : null);
 // Colunas leves da listagem (sem foto nem dados_extra).
 const LIGHT = 'id,evento_id,nome,nomeCracha,email,telefone,documento,cidade,estado,turma,profissao,instrucao,faturamento,tipo,grupoDiamante,convidadoPor,tamanhoCamisa,grupo,pessoa_token,recebeuCracha,credenciado,dataCredenciamento,temFoto,dados_extra,representante,updated_at';
 // Colunas do detalhe (tudo exceto a foto, que é carregada à parte).
+// Acima disto o delta perde a graça: mandar N linhas avulsas custa mais que
+// mandar a lista inteira uma vez. O servidor cai no full quando estoura.
+const DELTA_MAX = 80;
 const DETALHE = 'id,evento_id,nome,nomeCracha,email,telefone,documento,cidade,estado,turma,profissao,instrucao,nivel,faturamento,tamanhoCamisa,grupo,tipo,grupoDiamante,convidadoPor,convidadoPorId,observacoes,dataChegada,dataRetorno,dataCredenciamento,recebeuCracha,credenciado,pessoa_token,dados_extra,representante,temFoto,criado_em,updated_at';
 
 function shape(r) {
@@ -172,7 +175,12 @@ const repo = {
     let q = sb().from(TABELA).select(LIGHT).order('nome', { ascending: true });
     if (eventoId) q = q.eq('evento_id', eventoId);
     const data = unwrap(await q);
-    const updatedAt = data.reduce((m, r) => (r.updated_at > m ? r.updated_at : m), null);
+    // O acumulador começa em '' (string), NÃO em null: em JS `'2026-...' > null`
+    // é false (null vira 0 e a string vira NaN), então com null o reduce nunca
+    // trocava de valor e o updatedAt saía sempre null — o cliente nunca mandava
+    // `since` e o delta-polling abaixo jamais era acionado. Cada poll baixava a
+    // lista inteira.
+    const updatedAt = data.reduce((m, r) => (r.updated_at > m ? r.updated_at : m), '') || null;
     return { list: data.map(shape), updatedAt };
   },
 
@@ -217,6 +225,18 @@ const repo = {
       .order('updated_at', { ascending: false }).limit(1);
     if (error) throw new Error(error.message || 'supabase_error');
     return { updatedAt: data && data.length ? data[0].updated_at : null, count: count || 0 };
+  },
+
+  // Só as linhas tocadas depois de `since` — o passo que faltava no delta.
+  // Sem isto, qualquer credenciamento invalidava o cache e obrigava todos os
+  // aparelhos a rebaixar a lista inteira; em dia de evento (uma alteração a cada
+  // poucos segundos) o "unchanged" nunca ajudava e o egress ia às alturas.
+  // Usa o índice (evento_id, updated_at desc) que já existe no schema.
+  async alteradosDesde(eventoId, since) {
+    const data = unwrap(await sb().from(TABELA).select(LIGHT)
+      .eq('evento_id', eventoId).gt('updated_at', since)
+      .order('updated_at', { ascending: true }).limit(DELTA_MAX + 1));
+    return data.map(shape);
   },
 
   async criar(p) {
@@ -487,4 +507,4 @@ async function init() {
   unwrap(await sb().from('eventos').select('id', { count: 'exact', head: true }));
 }
 
-module.exports = { repo, audit, init };
+module.exports = { repo, audit, init, DELTA_MAX };

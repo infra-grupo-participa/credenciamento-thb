@@ -26,6 +26,12 @@ const SECRET = process.env.SESSION_SECRET || 'chf2026-troque-no-painel-com-SESSI
 /* ============================ AUTENTICAÇÃO ============================ */
 // Token assinado (HMAC) e stateless — sobrevive a redeploys, sem sessão em memória.
 
+// Validade da sessão do operador. Antes o token NÃO expirava: quem copiasse um
+// Bearer entrava para sempre (não havia como revogar sem trocar o SESSION_SECRET),
+// e uma tela logada seguia consultando o servidor por tempo indeterminado.
+// 12h cobre um dia inteiro de evento e mata a tela que ficou acesa de madrugada.
+const SESSION_MAX_MS = 12 * 60 * 60 * 1000;
+
 function signToken(payload) {
   const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
   const sig = crypto.createHmac('sha256', SECRET).update(body).digest('base64url');
@@ -39,11 +45,17 @@ function verifyToken(token) {
   const a = Buffer.from(sig);
   const b = Buffer.from(expected);
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  let data;
   try {
-    return JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
+    data = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
   } catch {
     return null;
   }
+  // Tokens emitidos antes desta mudança não têm `exp`, mas têm `iat`: valem 12h
+  // a partir do login original em vez de morrerem todos de uma vez no deploy.
+  const exp = Number.isFinite(data.exp) ? data.exp : Number(data.iat) + SESSION_MAX_MS;
+  if (!Number.isFinite(exp) || Date.now() > exp) return null;
+  return data;
 }
 
 function auth(req, res, next) {
@@ -89,7 +101,8 @@ api.post('/login', rateLimitLogin, async (req, res) => {
   const senha = String(req.body.senha || '');
   if (!operador) return res.status(400).json({ error: 'informe_o_nome' });
   if (!(await senhaValida(senha))) return res.status(401).json({ error: 'senha_invalida' });
-  const token = signToken({ operador, iat: Date.now() });
+  const agora = Date.now();
+  const token = signToken({ operador, iat: agora, exp: agora + SESSION_MAX_MS });
   res.json({ token, operador });
 });
 
@@ -163,6 +176,16 @@ api.get('/participantes', auth, async (req, res) => {
       const st = await db.repo.estadoLista(evento);
       if (st.updatedAt === since && st.count === n) {
         return res.json({ unchanged: true, updatedAt: since });
+      }
+      // Mudou alguma coisa. Se ninguém SAIU da lista (count >= n), dá para mandar
+      // só o que mudou e deixar o cliente costurar — quem entrou vem no delta,
+      // porque updated_at é `not null default now()`. Se o count caiu, alguém foi
+      // apagado e não há como dizer quem pelo delta: aí vai a lista inteira.
+      if (st.count >= n) {
+        const changed = await db.repo.alteradosDesde(evento, since);
+        if (changed.length && changed.length <= db.DELTA_MAX) {
+          return res.json({ delta: true, changed, updatedAt: st.updatedAt, count: st.count });
+        }
       }
     }
     res.json(await db.repo.listar(evento));
