@@ -198,6 +198,35 @@ pessoa duas vezes por causa disso, é inofensivo — a operação é idempotente
 - `thb_alunos` tem 7,3 kB por linha e 20 M de seq_scans: isso queima **CPU**,
   não egress. Merece índice depois do evento, não agora.
 
+## Otimizações fora do credenciamento (05/08, madrugada)
+
+| Onde | O que | Estado |
+|---|---|---|
+| `central-de-projetos` (SIP) | `prefetch={false}` no Sidebar | **no ar** (auto-deploy) |
+| `gps-thb` | `prefetch={false}` no NavTabs | commitado, **falta deploy manual** |
+| projeto Supabase 2 | `sync-clickup-hourly` (duplicata) desagendado | **aplicado** |
+| 4 tabelas de backup | RLS habilitado (PII exposta ao `anon`) | **aplicado** |
+
+O prefetch era o segundo maior consumidor: o menu fica visível em toda tela e o
+Next pré-buscava as 7-8 rotas de uma vez; como são dinâmicas, cada pré-busca roda
+o middleware e renderiza a página inteira. Medido nos logs: ~15 chamadas
+`GET /auth/v1/user` + queries por navegação.
+
+**`gps-thb` não tem deploy automático.** Para publicar: `git pull && npm install &&
+npm run build` na Hostinger e reiniciar o app (ou `touch tmp/restart.txt`). Até
+alguém fazer isso, o commit não reduz nada.
+
+### Descartado de propósito
+
+- **`React.cache()` no `getUser()`** do central-de-projetos: tocaria 8 arquivos de
+  autenticação por um ganho estimado abaixo de 3 MB/dia e não medido. Com a folga
+  atual, é risco sem retorno.
+- **Trocar `select('*')` por colunas**: a análise provou que a heurística quebra —
+  em `trafego/page.tsx` o tipo `Traffic` tem 5 campos usados só na tela de edição
+  (`CamposDoDia`), e cortá-los faria o aluno sobrescrever dado real com vazio.
+- **Reduzir `reconcilia-grupo`**: medido em 36 MB nos 3 dias, e é o contador
+  independente que pega furo de ingresso no grupo durante o lançamento.
+
 ## Orçamento para os 3 dias
 
 Sobravam ~660 MB no momento do fix. Com o delta no ar, 3 celulares × 10 h de
