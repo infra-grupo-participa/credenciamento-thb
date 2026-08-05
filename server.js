@@ -172,7 +172,11 @@ api.get('/participantes', auth, async (req, res) => {
     if (!evento) return res.status(400).json({ error: 'evento_obrigatorio' });
     const since = String(req.query.since || '');
     const n = Number(req.query.n);
-    if (since && Number.isFinite(n)) {
+    // O caminho barato NUNCA pode derrubar o polling. Se qualquer coisa falhar
+    // aqui (um `since` malformado vindo de cache velho, o probe dando timeout),
+    // o catch engole e segue para a lista inteira — que sempre funciona. Sem
+    // isto, um parâmetro estranho vira 500 e a lista para de atualizar no balcão.
+    if (since && Number.isFinite(n)) try {
       const st = await db.repo.estadoLista(evento);
       if (st.updatedAt === since && st.count === n) {
         return res.json({ unchanged: true, updatedAt: since });
@@ -187,6 +191,8 @@ api.get('/participantes', auth, async (req, res) => {
           return res.json({ delta: true, changed, updatedAt: st.updatedAt, count: st.count });
         }
       }
+    } catch (e) {
+      console.error('[delta] falhou, caindo na lista inteira:', e.message);
     }
     res.json(await db.repo.listar(evento));
   } catch (e) {
