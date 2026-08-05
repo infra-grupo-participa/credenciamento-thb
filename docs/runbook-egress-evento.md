@@ -36,6 +36,7 @@ ausência total de requisições `select=updated_at`.
 | `useOcioso` (10 min) | tela acesa e parada não consulta nada; volta no primeiro toque |
 | sessão de 12h | token passa a expirar (antes **nunca** expirava) |
 | failsafe do delta | qualquer erro no caminho otimizado cai no full em vez de dar 500 |
+| reconciliação de 10 min | refaz a lista inteira periodicamente; divergência morre em minutos |
 
 Validado em produção: `unchanged` responde 62 bytes, `since` inválido responde
 200 (cai no full), sessão carimba `exp` de 12h, bundle novo servido.
@@ -56,6 +57,7 @@ Validado em produção: `unchanged` responde 62 bytes, `since` inválido respond
 | Sintoma | Provável causa | O que fazer |
 |---|---|---|
 | Lista não atualiza nem ao tocar | delta caiu num loop de full | trocar `POLL_MS` para 15000 em `src/App.jsx`, rebuildar, push |
+| Pessoa credenciada aparece como pendente em OUTRO aparelho | colisão de milissegundo entre dois celulares (documentada abaixo) | espera até 10 min e se corrige sozinha; se tiver pressa, recarregue a página |
 | Pessoa credenciada some da lista | merge perdeu linha (a trava deveria impedir) | recarregar a página força o full; reportar |
 | Erro 401 no meio do expediente | sessão de 12h venceu | logar de novo, é esperado |
 | Egress voltando a subir rápido | algum aparelho com bundle antigo em cache | forçar recarga (puxar para baixo no PWA) |
@@ -75,6 +77,20 @@ Confira em Deployments que o estado ficou `completed`.
 **Atenção:** reverter traz de volta o consumo de ~670 MB/dia. Só faça isso se o
 credenciamento estiver realmente quebrado — se for só lentidão, prefira subir o
 `POLL_MS`.
+
+## Limitação conhecida: colisão de milissegundo
+
+Se dois celulares gravarem no mesmo milissegundo e isso cair exatamente entre o
+probe e a busca do delta, o `updated_at > since` deixa a segunda linha para trás
+— e como o par (máximo, contagem) continua batendo, o servidor responderia
+"nada mudou" indefinidamente. **O dado no banco fica correto** e o aparelho que
+credenciou mostra o estado certo; o sintoma é outro operador ver a pessoa como
+pendente.
+
+Não tentei fechar a corrida no servidor (exigiria travar ou versionar a lista,
+mudança grande na véspera do evento). A reconciliação de 10 minutos resolve na
+prática: a divergência dura minutos, não o evento. Se alguém credenciar a mesma
+pessoa duas vezes por causa disso, é inofensivo — a operação é idempotente.
 
 ## O que NÃO é o gargalo (não perca tempo aqui)
 
