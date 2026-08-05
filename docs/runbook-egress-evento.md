@@ -202,10 +202,23 @@ pessoa duas vezes por causa disso, é inofensivo — a operação é idempotente
 
 | Onde | O que | Estado |
 |---|---|---|
-| `central-de-projetos` (SIP) | `prefetch={false}` no Sidebar | **no ar** (auto-deploy) |
-| `gps-thb` | `prefetch={false}` no NavTabs | commitado, **falta deploy manual** |
+| `central-de-projetos` (SIP) | `prefetch={false}` no Sidebar | **no ar** |
+| `gps-thb` | `prefetch={false}` no NavTabs | **no ar** |
+| `central-de-projetos` (SIP) | logout após 30 min sem atividade | **no ar** |
+| `gps-thb` | logout após 30 min sem atividade | **no ar** |
+| `controle-de-eventos` (dashboard CNHF) | polling 30s → 60s + logout de 30 min | **no ar** |
+| projeto Supabase 2 | 7 crons de analytics: 30 min → 1 h | **aplicado** |
 | projeto Supabase 2 | `sync-clickup-hourly` (duplicata) desagendado | **aplicado** |
 | 4 tabelas de backup | RLS habilitado (PII exposta ao `anon`) | **aplicado** |
+
+**Correção:** o `DEPLOY.md` do `gps-thb` diz que o deploy é manual — **está
+desatualizado**. A Hostinger tem integração git ativa naquele domínio: o push
+disparou o deploy sozinho em 4 segundos.
+
+Os crons de analytics ficaram com **minutos escalonados** (5, 10, 20, 25, 35, 45,
+50) de propósito: evita o minuto 0/30 do `ingest-sendflow` e o minuto 15 do
+`reconcilia-grupo` — os dois jobs críticos do ingresso no grupo, que **não foram
+tocados** — e evita todos baterem no banco no mesmo instante.
 
 O prefetch era o segundo maior consumidor: o menu fica visível em toda tela e o
 Next pré-buscava as 7-8 rotas de uma vez; como são dinâmicas, cada pré-busca roda
@@ -215,6 +228,38 @@ o middleware e renderiza a página inteira. Medido nos logs: ~15 chamadas
 **`gps-thb` não tem deploy automático.** Para publicar: `git pull && npm install &&
 npm run build` na Hostinger e reiniciar o app (ou `touch tmp/restart.txt`). Até
 alguém fazer isso, o commit não reduz nada.
+
+### Varredura completa da organização (13 repositórios)
+
+| Repositório | Consome? | Situação |
+|---|---|---|
+| `credenciamento-thb` | sim | corrigido (era 90% do problema) |
+| `central-de-projetos` (SIP) | sim | prefetch + logout de 30 min no ar |
+| `gps-thb` | sim | prefetch + logout de 30 min no ar |
+| `controle-de-eventos` (dashboard CNHF) | sim | polling 60s + logout no ar |
+| `rede-nacional-especialistas` (blog) | sim, pouco | **medido: 19 kB/visita** — ver abaixo |
+| `central-de-alunos-ht` | sim | ~20-60 MB/dia — pendente, ver abaixo |
+| `workbook-cnhf` | sim | não mexer (read-merge-write protege resposta de aluno) |
+| `sip` (Documents\sip) | sim | polling já tem backoff e pausa em aba oculta |
+| `disparos-thb` | sim | já remediado pelo time em 04/08 |
+| `sistema-grupo-participa-v2` | não | sem cutover de domínio |
+| `sip-thb` | não | sem deploy ativo (`/api/health` dá 404) |
+| `clint-dashboard` | não | não usa Supabase (API do Clint) |
+| `form-seminario` | não | repositório vazio |
+
+**Blog institucional — alarme falso.** Uma análise apontou "100 MB a 3 GB/dia"
+por causa do `force-dynamic` na home. Medido no banco: o catálogo tem 477
+especialistas = 191 kB crus = **19 kB comprimidos por visita**. Com o tráfego real
+de um site com **1 artigo publicado**, isso é alguns MB/dia. E trocar por
+`revalidate` **não funcionaria**: as queries usam o client que chama `cookies()`,
+o que força renderização dinâmica de qualquer jeito. Cachear exigiria um client
+público separado — refatoração que não se paga na véspera de evento.
+
+**`central-de-alunos-ht` (pendente, opcional).** `lib/admin.js:59` lê
+`lesson_progress` inteira (todas as turmas históricas) e filtra em memória.
+Corrigir é trocar por filtro no banco (`.in('lesson_id', idsAulas)`). Vale ~20-60
+MB/dia, mas exige validar os consumidores do painel admin — não é uma linha. Fica
+para depois do ciclo, já que o orçamento fecha sem isso.
 
 ### Descartado de propósito
 
