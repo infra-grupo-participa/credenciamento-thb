@@ -31,7 +31,7 @@ const POLL_EVENTOS_MS = 60000;
 // servidor pode deixar uma linha para trás. De tempos em tempos a lista é refeita
 // inteira, então qualquer divergência morre em minutos em vez de durar o evento.
 // Custa ~40 kB por aparelho a cada 10 min; barato perto de exibir lista furada.
-const RECONCILIA_MS = 10 * 60 * 1000;
+const RECONCILIA_MS = 5 * 60 * 1000;
 
 const norm = (s) => (s || '').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 const initials = (n) => {
@@ -252,7 +252,10 @@ function Credenciamento({ operador, onLogout }) {
     mutationFn: async ({ id, credenciado }) => {
       try { return await api.credenciar(id, credenciado); }
       catch (e) {
-        if (!navigator.onLine || e?.code === 'network') {
+        // `unauthorized` entra aqui desde que a sessão passou a expirar em 12h:
+        // se o token vence com a operação em voo, o credenciamento não pode
+        // simplesmente evaporar. Vai para a fila e sobe no relogin (é idempotente).
+        if (!navigator.onLine || e?.code === 'network' || e?.code === 'unauthorized') {
           enfileirar({ id, credenciado }); setPendentes(tamanhoFila());
           return { offline: true };
         }
@@ -470,7 +473,11 @@ function Credenciamento({ operador, onLogout }) {
         qc.invalidateQueries({ queryKey: ['eventos'] });
       })
       .catch((e) => {
-        if (!navigator.onLine || e?.code === 'network') {
+        // `unauthorized` junto: o beep verde já tocou e a pessoa entrou no salão.
+        // Se a sessão de 12h vencer exatamente aqui, o credenciamento tem que
+        // sobreviver na fila até o relogin — senão a tela confirma uma entrada
+        // que o banco nunca registra.
+        if (!navigator.onLine || e?.code === 'network' || e?.code === 'unauthorized') {
           // Piscou a rede: enfileira para sincronizar quando voltar (já mostramos OK).
           enfileirar({ id: det.id, credenciado: true });
           setPendentes(tamanhoFila());
@@ -486,6 +493,9 @@ function Credenciamento({ operador, onLogout }) {
   }
 
   async function aoEscanear(raw) {
+    // Ler um QR é trabalho, mesmo sem ninguém tocar a tela: mantém o polling vivo
+    // (a resolução abaixo depende da lista local estar em dia para acusar duplicado).
+    window.dispatchEvent(new Event('chf:atividade'));
     let code = String(raw || '').trim();
     const m = code.match(/\/qr\/([^/?#]+)/);
     if (m) code = decodeURIComponent(m[1]); // QR que codifica o link inteiro

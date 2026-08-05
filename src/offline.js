@@ -20,12 +20,18 @@ export function enfileirar(op) {
 export async function flushFila(req) {
   const f = ler();
   if (!f.length) return 0;
-  const restantes = [];
+  const enviados = new Set();
   let ok = 0;
   for (const op of f) {
-    try { await req(op.id, op.credenciado); ok++; }
-    catch { restantes.push(op); }
+    try { await req(op.id, op.credenciado); ok++; enviados.add(`${op.id}|${op.t}`); }
+    catch { /* fica na fila para a próxima tentativa */ }
   }
-  gravar(restantes);
+  // Re-lê a fila ANTES de gravar, em vez de regravar o snapshot do início.
+  // Cada envio pode demorar até o timeout de 12 s; num servidor engasgado o flush
+  // leva 12 s x tamanho da fila, e é justamente aí que o operador mais enfileira.
+  // Gravar o snapshot antigo apagava tudo que entrou nesse meio-tempo — some um
+  // credenciamento que a tela já confirmou como salvo, sem nenhum aviso.
+  // A chave id|t preserva quem foi re-enfileirado durante o flush (t novo).
+  gravar(ler().filter((x) => !enviados.has(`${x.id}|${x.t}`)));
   return ok;
 }

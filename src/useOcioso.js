@@ -20,7 +20,11 @@ export function useOcioso(ms) {
       t = setTimeout(() => setOcioso(true), ms);
     };
     // `passive` para não atrapalhar o scroll da lista no tablet.
-    const sinais = ['pointerdown', 'keydown', 'wheel', 'touchstart'];
+    // `chf:atividade` é o sinal para trabalho que NÃO gera evento de input: o
+    // scanner em modo quiosque lê QR por câmera e wake-lock, e o operador pode
+    // passar vários minutos sem encostar na tela. Sem isso a lista congelaria
+    // no meio do balcão e o beep de duplicado deixaria de soar.
+    const sinais = ['pointerdown', 'keydown', 'wheel', 'touchstart', 'chf:atividade'];
     sinais.forEach((e) => window.addEventListener(e, rearma, { passive: true }));
     const aoVoltar = () => { if (!document.hidden) rearma(); };
     document.addEventListener('visibilitychange', aoVoltar);
