@@ -229,6 +229,37 @@ o middleware e renderiza a página inteira. Medido nos logs: ~15 chamadas
 npm run build` na Hostinger e reiniciar o app (ou `touch tmp/restart.txt`). Até
 alguém fazer isso, o commit não reduz nada.
 
+### De onde vinham os 137 MB do dia 05/08 (rastreado até a origem)
+
+| Origem | MB | % |
+|---|---|---|
+| **Dashboard CNHF** (~150 carregamentos × 868 kB) | ~110 | **80%** |
+| Crons do ingresso no grupo (`reconcilia` + `sync-grupo`) | ~22 | 16% |
+| Credenciamento | ~1 | 0,7% |
+| Auth + Realtime + Functions + Pooler | ~3 | 2% |
+
+Cada carregamento de tela do dashboard dispara **9 endpoints que leem
+`controle.lead_active` inteira** (7.612 linhas), cada um com um recorte de colunas
+diferente e nenhum agregando no banco:
+
+```
+lead_active select(*) ......... 427 kB    grupo_evento .......... 101 kB
+lead_active (telefone/nome) ... 134 kB    lead_active (segmento)   65 kB
+lead_active (utm_content) ..... 125 kB    respostas_pesquisa ..... 16 kB
+                                          ---------------------------------
+                                          um carregamento ....... 868 kB
+```
+
+**Corrigido com cache de leitura de 60 s** no backend (`server/cache-leitura.js`).
+Os dados vêm de crons horários, então 60 s serve exatamente o mesmo byte — só que
+uma vez, em vez de uma por aba aberta. Ficam fora do cache: `/health` (mascararia
+incidente), `/tarefa/:id`, qualquer método diferente de GET e qualquer resposta
+diferente de 200. Erro dentro do hook deixa a request seguir normal.
+
+O teste (13 casos contra um Fastify real, contando quantas vezes o handler roda)
+**pegou um bug**: os regexes de exceção estavam ancorados em `^/health`, mas as
+rotas vivem sob o prefixo `/api` — nunca casavam, e `/health` acabava cacheado.
+
 ### Varredura completa da organização (13 repositórios)
 
 | Repositório | Consome? | Situação |
