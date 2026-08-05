@@ -80,6 +80,83 @@ Confira em Deployments que o estado ficou `completed`.
 credenciamento estiver realmente quebrado — se for só lentidão, prefira subir o
 `POLL_MS`.
 
+## QR Codes — auditados, estão redondos
+
+Verificado no banco e contra produção:
+
+| Verificação | Resultado |
+|---|---|
+| Tokens nulos (pessoa sem QR) | **0** nos três dias |
+| Tokens duplicados dentro do dia | **0** nos três dias |
+| Consistência d2 → d3 | **perfeita**, 0 diferenças |
+| Pessoa do d2 escaneia no d2 | resolve certo |
+| Página pública `/qr` e `/qrimg` | 200 + PNG |
+| QR de outro sistema / ilegível | 404 tratado, sem travar |
+
+O token deriva do **grupo** (`ethb-sp`), não do dia — então o mesmo QR impresso
+vale para d1, d2 e d3. A resolução é feita dentro do dia aberto, e o app abre
+sozinho no evento cuja data é a de hoje.
+
+### ⚠️ 4 pessoas do Dia 1 não existem na lista do Dia 2
+
+Foram **cadastradas na hora, no balcão do dia 1** (walk-ins criados em 04/08);
+a lista do d2/d3 veio da planilha original e não as tem. Três delas já foram
+credenciadas no dia 1, ou seja: compareceram e devem voltar.
+
+- Antonio Vicente da Graça (credenciado)
+- Giuliana Calegare (credenciada, comprador)
+- Raquel Renata Ribeiro Rodrigues (credenciada, comprador)
+- Bruno Gabriel Lima Rodrigues (não credenciado, comprador)
+
+**O sistema não quebra**: ao escanear, aparece o card laranja *"QR de outro dia —
+[nome] — Pertence a: ETHB SP — Dia 1"*.
+
+**O que o operador deve fazer:** cadastrar a pessoa no dia de hoje pelo botão de
+adicionar — o mesmo fluxo usado ontem. **Não** use o atalho de "trocar para o
+Dia 1" que o card oferece: isso credenciaria a pessoa no dia errado e
+sobrescreveria a hora de chegada dela do dia 1.
+
+Se você preferir resolver antes de abrir o balcão, este SQL copia as quatro para
+o d2 e o d3 (rode no SQL Editor do Supabase; é reversível apagando por nome):
+
+```sql
+insert into public.participantes (id, evento_id, nome, "nomeCracha", email, telefone,
+  documento, cidade, estado, turma, profissao, instrucao, faturamento, tipo,
+  "grupoDiamante", "convidadoPor", "tamanhoCamisa", grupo, pessoa_token,
+  dados_extra, representante)
+select replace(p.id, 'ethb-sp-d1', d.alvo), d.alvo, p.nome, p."nomeCracha", p.email,
+  p.telefone, p.documento, p.cidade, p.estado, p.turma, p.profissao, p.instrucao,
+  p.faturamento, p.tipo, p."grupoDiamante", p."convidadoPor", p."tamanhoCamisa",
+  p.grupo, p.pessoa_token, p.dados_extra, p.representante
+from public.participantes p
+cross join (values ('ethb-sp-d2'), ('ethb-sp-d3')) as d(alvo)
+where p.evento_id = 'ethb-sp-d1'
+  and p.pessoa_token not in (select pessoa_token from public.participantes where evento_id = 'ethb-sp-d2')
+on conflict (id) do nothing;
+```
+
+Não rodei por conta própria porque é decisão de negócio: só você sabe se essas
+quatro têm direito aos dias 2 e 3.
+
+## Segurança do banco (corrigido nesta madrugada)
+
+Tabelas de **backup** estavam expostas ao papel `anon` sem RLS — qualquer um com
+a chave pública podia ler e apagar:
+
+- `cs_bkp_ethb_sync_20260803` (credenciamento, 45 linhas)
+- `thb_alunos_bkp_20260730_reconciliacao` e `..._organizacao` (1.765 alunos cada)
+- `_thb_revogar_20260730` (194 linhas)
+
+RLS habilitado nas quatro. Nenhum código referencia essas tabelas (verificado por
+busca nos repositórios) e o servidor usa `service_role`, que ignora RLS — os apps
+foram testados depois da mudança e seguem de pé. As tabelas principais
+(`participantes`, `eventos`, `thb_alunos`) já estavam protegidas.
+
+Fica para depois do evento: a view `vw_eventos` é `SECURITY DEFINER` e legível por
+`anon`, contornando o RLS das tabelas base. Expõe só nomes/datas/contagens de
+eventos, não PII individual — por isso não mexi na véspera, já que ela está no
+caminho do polling.
+
 ## O que a auditoria adversarial encontrou (e já está corrigido)
 
 Uma revisão independente do próprio fix, antes do evento, achou três coisas —
