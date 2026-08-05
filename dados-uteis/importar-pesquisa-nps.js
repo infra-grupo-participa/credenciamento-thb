@@ -97,20 +97,37 @@ const acha = (linha, ...pedacos) => {
 // olho no balcão e saber com quem vale puxar conversa. Ajustar os pesos aqui é
 // mais barato do que discutir modelo — e o breakdown vai junto para a tela
 // poder explicar POR QUE alguém está quente.
+// ATENCAO: esta formula tem de espelhar public.calcular_lead_score() no banco
+// (migration lead_score_qualificado_aurum). Se divergirem, a planilha e a tela
+// vao discordar sobre quem esta quente — e ninguem vai saber qual acreditar.
+// O banco e a fonte da verdade; este script existe para o caso de rodar offline.
 const PESOS = {
-  possivel_comprador: 25,
+  possivel_comprador: 20,
   possivel_aurum: 25,
-  possivel_renov_aurum: 15,
-  possivel_hm: 10,
-  possivel_renov_hm: 10,
-  pesquisa: 10,
-  nps: 5,
-  ingresso_diamond: 10,
-  ingresso_vip: 5,
+  possivel_renov_aurum: 12,
+  possivel_hm: 8,
+  possivel_renov_hm: 5,
+  pesquisa: 8,
+  ingresso_diamond: 7,
+  ingresso_vip: 4,
 };
+// Teto por nivel: quem JA e Aurum/Platina/Diamante nao e candidato a COMPRAR
+// Aurum, por mais engajado que esteja. Sem isso, 152 pessoas THB ficavam
+// empilhadas no mesmo score e a lista nao servia para priorizar.
+const TETO_POR_NIVEL = [
+  [/^DIAMANTE/i, 20],
+  [/^AURUM/i, 30],
+  [/^PLATINA/i, 35],
+];
+// Maturidade: quem ja entrega holding tem faturamento e precisa escalar.
+const PESO_HOLDINGS = [
+  [/mais de 100/i, 15], [/mais de 50/i, 14], [/21 a 50/i, 13],
+  [/6 a 20/i, 12], [/1 a 5/i, 7], [/nenhuma/i, 2],
+];
 
-function calcularScore({ sinal, pesquisaOk, temNps }) {
+function calcularScore({ sinal, pesquisaOk, holdings, nps }) {
   let n = 0;
+  let teto = 100;
   if (sinal) {
     if (sinal.possivel_comprador) n += PESOS.possivel_comprador;
     if (sinal.possivel_aurum) n += PESOS.possivel_aurum;
@@ -120,11 +137,12 @@ function calcularScore({ sinal, pesquisaOk, temNps }) {
     const ing = norm(sinal.ingresso);
     if (ing === 'diamond') n += PESOS.ingresso_diamond;
     else if (ing === 'vip') n += PESOS.ingresso_vip;
+    for (const [re, t] of TETO_POR_NIVEL) if (re.test(sinal.origem || '')) { teto = t; break; }
   }
-  // Engajamento: quem parou para responder está mais perto da conversa.
-  if (pesquisaOk) n += PESOS.pesquisa;
-  if (temNps) n += PESOS.nps;
-  return Math.max(0, Math.min(100, n));
+  for (const [re, p] of PESO_HOLDINGS) if (re.test(holdings || '')) { n += p; break; }
+  if (pesquisaOk) n += PESOS.pesquisa;          // engajamento
+  if (nps >= 9) n += 10; else if (nps >= 7) n += 5;  // promotor compra; detrator nao
+  return Math.max(0, Math.min(teto, n));
 }
 
 /* ---------------- args ---------------- */
@@ -285,10 +303,28 @@ async function main() {
   }
 
   // ---- score ----
+  // Indexa o que a pesquisa/NPS disseram desta pessoa, para o score usar
+  // maturidade (holdings montadas) e satisfacao (nota do NPS), nao so os flags.
+  const holdingsPorId = new Map();
+  const npsNotaPorId = new Map();
+  for (const r of respostas) {
+    if (r.tipo === 'pesquisa') {
+      const k = Object.keys(r.respostas || {}).find((x) => /quantas holdings/i.test(x));
+      if (k) holdingsPorId.set(r.participante_id, r.respostas[k]);
+    } else if (r.nota != null) {
+      const atual = npsNotaPorId.get(r.participante_id);
+      if (atual == null || r.nota > atual) npsNotaPorId.set(r.participante_id, r.nota);
+    }
+  }
   const scores = new Map();
   for (const p of parts) {
     const s = sinais.get(p.id) || null;
-    const score = calcularScore({ sinal: s, pesquisaOk: pesquisaPorId.has(p.id), temNps: npsPorId.has(p.id) });
+    const score = calcularScore({
+      sinal: s,
+      pesquisaOk: pesquisaPorId.has(p.id),
+      holdings: holdingsPorId.get(p.id),
+      nps: npsNotaPorId.get(p.id),
+    });
     scores.set(p.id, score);
   }
 

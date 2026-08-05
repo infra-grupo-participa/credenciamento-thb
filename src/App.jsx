@@ -117,6 +117,7 @@ function Credenciamento({ operador, onLogout }) {
   const [tipoFiltro, setTipoFiltro] = useState('todos');
   const [ingressoFiltro, setIngressoFiltro] = useState('todos'); // DIAMOND/VIP/PLATEIA/diamante
   const [compradorFiltro, setCompradorFiltro] = useState('todos'); // sim/nao (possível comprador Aurum)
+  const [tempFiltro, setTempFiltro] = useState('todos'); // faixa do lead_score
   const [busca, setBusca] = useState('');
   const [ordem, setOrdem] = useState('nome');
   const [filtros, setFiltros] = useState([]); // [{ col, key, label }]
@@ -331,6 +332,7 @@ function Credenciamento({ operador, onLogout }) {
       }
       if (compradorFiltro === 'sim' && !ehPossivelComprador(x)) return false;
       if (compradorFiltro === 'nao' && ehPossivelComprador(x)) return false;
+      if (tempFiltro !== 'todos' && leadFaixa(x.lead_score || 0).cls !== tempFiltro) return false;
       for (const f of filtros) {
         const rv = norm(String((x.dados_extra && x.dados_extra[f.col]) || '').trim());
         if (rv !== f.key) return false;
@@ -344,6 +346,8 @@ function Credenciamento({ operador, onLogout }) {
         || norm(x.documento).includes(q);
     });
     arr.sort((a, b) => {
+      // Lead primeiro: o operador no balcao quer ver quem vale abordar no topo.
+      if (ordem === 'score') return (b.lead_score || 0) - (a.lead_score || 0) || a.nome.localeCompare(b.nome, 'pt-BR');
       if (ordem === 'nome') return a.nome.localeCompare(b.nome, 'pt-BR');
       if (ordem === 'nome-desc') return b.nome.localeCompare(a.nome, 'pt-BR');
       if (ordem === 'turma') return (a.turma || '').localeCompare(b.turma || '', 'pt-BR', { numeric: true });
@@ -353,7 +357,7 @@ function Credenciamento({ operador, onLogout }) {
       return 0;
     });
     return arr;
-  }, [lista, busca, filtro, tipoFiltro, ingressoFiltro, compradorFiltro, ordem, filtros]);
+  }, [lista, busca, filtro, tipoFiltro, ingressoFiltro, compradorFiltro, tempFiltro, ordem, filtros]);
 
   // Colunas disponíveis (todas as da planilha original) para filtro avançado.
   const colunas = useMemo(() => {
@@ -385,7 +389,21 @@ function Credenciamento({ operador, onLogout }) {
   // Render incremental: listas grandes (evento 5x) não travam o celular —
   // mostra os primeiros N e um botão para carregar o resto (a busca filtra tudo).
   const [limite, setLimite] = useState(250);
-  useEffect(() => { setLimite(250); }, [eventoId, busca, filtro, tipoFiltro, ingressoFiltro, compradorFiltro, ordem, filtros]);
+  useEffect(() => { setLimite(250); }, [eventoId, busca, filtro, tipoFiltro, ingressoFiltro, compradorFiltro, tempFiltro, ordem, filtros]);
+  // Medidor de temperatura do que esta na tela AGORA (respeita os filtros).
+  // Um numero so nao serviria: a media esconde a distribuicao, e e a
+  // distribuicao que diz se vale puxar conversa nesta fila.
+  const termometro = useMemo(() => {
+    const t = { total: filtrada.length, soma: 0, muitoquente: 0, quente: 0, morno: 0, frio: 0 };
+    for (const p of filtrada) {
+      const n = p.lead_score || 0;
+      t.soma += n;
+      t[leadFaixa(n).cls]++;
+    }
+    t.media = t.total ? Math.round(t.soma / t.total) : 0;
+    return t;
+  }, [filtrada]);
+
   const visiveis = limite < filtrada.length ? filtrada.slice(0, limite) : filtrada;
 
   // Callbacks estáveis para as linhas memoizadas (não re-renderiza a tabela toda a cada poll).
@@ -754,8 +772,16 @@ function Credenciamento({ operador, onLogout }) {
           <option value="sim">Possível comprador</option>
           <option value="nao">Não é</option>
         </select>
+        <select className="ctl" value={tempFiltro} onChange={(e) => setTempFiltro(e.target.value)}>
+          <option value="todos">Temperatura: Todas</option>
+          <option value="muitoquente">🔥 Muito quente (80+)</option>
+          <option value="quente">Quente (60-79)</option>
+          <option value="morno">Morno (30-59)</option>
+          <option value="frio">Frio (&lt;30)</option>
+        </select>
         <select className="ctl" value={ordem} onChange={(e) => setOrdem(e.target.value)}>
-          <option value="nome">Ordenar: Nome (A→Z)</option>
+          <option value="score">Ordenar: Lead (quente→frio)</option>
+          <option value="nome">Nome (A→Z)</option>
           <option value="nome-desc">Nome (Z→A)</option>
           <option value="turma">Turma</option>
           <option value="tipo">Tipo</option>
@@ -798,6 +824,16 @@ function Credenciamento({ operador, onLogout }) {
       <main className="list-wrap">
         <div className="count-row">
           <span>{filtrada.length} {filtrada.length === 1 ? 'participante' : 'participantes'}{filtro !== 'todos' ? ` · ${filtro}` : ''}</span>
+          {termometro.total > 0 && (
+            <span className="termometro" title="Qualificação para o Aurum na seleção atual">
+              <span className={`lead-badge ${leadFaixa(termometro.media).cls}`}>{termometro.media}</span>
+              <span className="termo-label">lead médio</span>
+              {termometro.muitoquente > 0 && <b className="t-muitoquente">{termometro.muitoquente} 🔥</b>}
+              {termometro.quente > 0 && <b className="t-quente">{termometro.quente} quentes</b>}
+              {termometro.morno > 0 && <b className="t-morno">{termometro.morno} mornos</b>}
+              {termometro.frio > 0 && <b className="t-frio">{termometro.frio} frios</b>}
+            </span>
+          )}
         </div>
         <div className="table-wrap">
           <div className="table-scroll">
