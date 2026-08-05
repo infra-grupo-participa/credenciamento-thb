@@ -206,7 +206,17 @@ api.get('/participantes/:id', auth, async (req, res) => {
   try {
     const p = await db.repo.detalhe(req.params.id);
     if (!p) return res.status(404).json({ error: 'nao_encontrado' });
-    res.json(p);
+    // Sinais comerciais e respostas de pesquisa/NPS entram SÓ aqui, no card
+    // aberto — nunca na lista (ver o comentário do LIGHT em db.js).
+    // Se essa busca falhar, o card continua abrindo com a ficha: perder a aba
+    // de pesquisa é um contratempo, não abrir o participante trava o balcão.
+    let extra = { sinal: null, respostas: [] };
+    try {
+      extra = await db.repo.fichaExtra(req.params.id);
+    } catch (e) {
+      console.error('[ficha] pesquisa/NPS indisponivel:', e.message);
+    }
+    res.json({ ...p, ...extra });
   } catch (e) {
     console.error(e.message);
     res.status(500).json({ error: 'detalhe_failed' });

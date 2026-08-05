@@ -18,7 +18,7 @@ import { linhasExport, aplicarQrImagem } from './exportRows.js';
 import { useOcioso } from './useOcioso.js';
 import {
   IconImport, IconExport, IconPlus, IconSearch, IconCheck, IconSquare, IconEdit, IconLogout, IconReset,
-  IconQr, IconMore, IconChart, IconSettings, IconClose,
+  IconQr, IconMore, IconChart, IconSettings, IconClose, IconCheckCircle,
 } from './icons.jsx';
 
 const POLL_MS = 5000;
@@ -48,6 +48,14 @@ function eventoPadrao(eventos) {
   const ativos = (eventos || []).filter((e) => !e.arquivado).sort((a, b) => a.ordem - b.ordem);
   const hoje = hojeISO();
   return ativos.find((e) => e.data === hoje) || ativos[0] || null;
+}
+// Faixa de temperatura do lead_score (0-100), já vinda pronta da lista — O(1) por
+// linha, sem cálculo pesado (a lista tem centenas de linhas e é o caminho quente da tela).
+function leadFaixa(score) {
+  if (score < 30) return { cls: 'frio', label: 'Frio' };
+  if (score < 60) return { cls: 'morno', label: 'Morno' };
+  if (score < 80) return { cls: 'quente', label: 'Quente' };
+  return { cls: 'muitoquente', label: 'Muito quente' };
 }
 function grupoBadge(g) {
   if (!g) return <span style={{ color: 'var(--muted)' }}>—</span>;
@@ -896,6 +904,19 @@ const Linha = memo(function Linha({ p, readOnly, onToggle, onEdit, onDetail }) {
             <div className="name">
               <button type="button" className="name-btn" onClick={() => onDetail(p)}>{p.nome || '—'}</button>
             </div>
+            {(typeof p.lead_score === 'number' || p.pesquisa_ok) && (
+              <div className="name-signals">
+                {typeof p.lead_score === 'number' && (
+                  <span className={`lead-badge lead-${leadFaixa(p.lead_score).cls}`}
+                    title={`Temperatura do lead: ${leadFaixa(p.lead_score).label} (${p.lead_score})`}>
+                    {p.lead_score}
+                  </span>
+                )}
+                {p.pesquisa_ok && (
+                  <span className="pesquisa-ico" title="Respondeu a pesquisa do ETHB"><IconCheckCircle /></span>
+                )}
+              </div>
+            )}
             {(p.nomeCracha || p.profissao || p.convidadoPor) && (
               <div className="name-sub">
                 {[p.nomeCracha, p.profissao, p.convidadoPor ? `convidado por ${p.convidadoPor}` : '']

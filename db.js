@@ -84,16 +84,30 @@ const TABELA = 'participantes';
 const CODE_RE = /^[A-Za-z0-9_.:@-]{1,64}$/;
 const codeSeguro = (c) => (CODE_RE.test(String(c || '')) ? String(c) : null);
 // Colunas leves da listagem (sem foto nem dados_extra).
-const LIGHT = 'id,evento_id,nome,nomeCracha,email,telefone,documento,cidade,estado,turma,profissao,instrucao,faturamento,tipo,grupoDiamante,convidadoPor,tamanhoCamisa,grupo,pessoa_token,recebeuCracha,credenciado,dataCredenciamento,temFoto,dados_extra,representante,updated_at';
+// `pesquisa_ok` e `lead_score` são os ÚNICOS campos da feature de pesquisa/NPS que
+// entram na lista, e é de propósito: esta lista é rebaixada por polling em vários
+// aparelhos, então cada campo aqui é multiplicado por ~366 linhas a cada leitura.
+// Dois campos escalares custam ~1,5 kB comprimidos por lista inteira. Os sinais
+// comerciais e as respostas em texto ficam fora — só o card aberto os carrega.
+const LIGHT = 'id,evento_id,nome,nomeCracha,email,telefone,documento,cidade,estado,turma,profissao,instrucao,faturamento,tipo,grupoDiamante,convidadoPor,tamanhoCamisa,grupo,pessoa_token,recebeuCracha,credenciado,dataCredenciamento,temFoto,dados_extra,representante,pesquisa_ok,lead_score,updated_at';
 // Colunas do detalhe (tudo exceto a foto, que é carregada à parte).
 // Acima disto o delta perde a graça: mandar N linhas avulsas custa mais que
 // mandar a lista inteira uma vez. O servidor cai no full quando estoura.
 const DELTA_MAX = 80;
-const DETALHE = 'id,evento_id,nome,nomeCracha,email,telefone,documento,cidade,estado,turma,profissao,instrucao,nivel,faturamento,tamanhoCamisa,grupo,tipo,grupoDiamante,convidadoPor,convidadoPorId,observacoes,dataChegada,dataRetorno,dataCredenciamento,recebeuCracha,credenciado,pessoa_token,dados_extra,representante,temFoto,criado_em,updated_at';
+const DETALHE = 'id,evento_id,nome,nomeCracha,email,telefone,documento,cidade,estado,turma,profissao,instrucao,nivel,faturamento,tamanhoCamisa,grupo,tipo,grupoDiamante,convidadoPor,convidadoPorId,observacoes,dataChegada,dataRetorno,dataCredenciamento,recebeuCracha,credenciado,pessoa_token,dados_extra,representante,temFoto,pesquisa_ok,lead_score,criado_em,updated_at';
 
 function shape(r) {
   if (!r) return r;
-  return { ...r, recebeuCracha: !!r.recebeuCracha, credenciado: !!r.credenciado, temFoto: !!r.temFoto };
+  return {
+    ...r,
+    recebeuCracha: !!r.recebeuCracha,
+    credenciado: !!r.credenciado,
+    temFoto: !!r.temFoto,
+    // Normaliza para a tela nunca ter de decidir entre null/undefined/0:
+    // participante sem import de pesquisa aparece como "não respondeu, score 0".
+    pesquisa_ok: !!r.pesquisa_ok,
+    lead_score: Number(r.lead_score) || 0,
+  };
 }
 
 /* ---------- Normalização (criação/edição manual) ---------- */
@@ -225,6 +239,26 @@ const repo = {
       .order('updated_at', { ascending: false }).limit(1);
     if (error) throw new Error(error.message || 'supabase_error');
     return { updatedAt: data && data.length ? data[0].updated_at : null, count: count || 0 };
+  },
+
+  // Sinais comerciais + respostas de pesquisa/NPS de UM participante.
+  // Só é chamado quando o operador abre o card — nunca na lista. É essa
+  // separação que deixa a feature caber no orçamento de egress: o texto das
+  // respostas é gordo, e multiplicá-lo por 366 linhas a cada poll estouraria.
+  async fichaExtra(id) {
+    if (!id) return { sinal: null, respostas: [] };
+    const [sinal, respostas] = await Promise.all([
+      sb().from('participante_sinal').select('*').eq('participante_id', id).limit(1),
+      sb().from('participante_resposta')
+        .select('tipo,respostas,nota,respondido_em')
+        .eq('participante_id', id)
+        .order('tipo', { ascending: true }),
+    ]);
+    if (sinal.error) throw new Error(sinal.error.message || 'supabase_error');
+    if (respostas.error) throw new Error(respostas.error.message || 'supabase_error');
+    const s = (sinal.data && sinal.data[0]) || null;
+    if (s) delete s.participante_id; // a tela já sabe de quem é
+    return { sinal: s, respostas: respostas.data || [] };
   },
 
   // Só as linhas tocadas depois de `since` — o passo que faltava no delta.

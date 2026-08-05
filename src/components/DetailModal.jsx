@@ -62,6 +62,8 @@ export default function DetailModal({ participantId, eventos = [], readOnly, onC
   const [erro, setErro] = useState(false);
   const [foto, setFoto] = useState(null);
   const [aba, setAba] = useState('resumo');
+  // Abas de topo do card: Perfil (ficha, como já era) · Pesquisa (ETHB) · NPS (D1/D2/D3).
+  const [abaTop, setAbaTop] = useState('perfil');
   const [hist, setHist] = useState([]);
   // 'carregando' | 'ok' | 'erro' — "vazio" e "não consegui buscar" NÃO podem parecer
   // a mesma coisa: o operador concluiria que a pessoa nunca veio.
@@ -79,7 +81,7 @@ export default function DetailModal({ participantId, eventos = [], readOnly, onC
   }
 
   useEffect(() => {
-    setP(null); setErro(false); setFoto(null); setHist([]); setAba('resumo'); setQr('');
+    setP(null); setErro(false); setFoto(null); setHist([]); setAba('resumo'); setAbaTop('perfil'); setQr('');
     api.detalhe(participantId).then((d) => {
       setP(d);
       setComprador(ehPossivelComprador(d));
@@ -92,6 +94,15 @@ export default function DetailModal({ participantId, eventos = [], readOnly, onC
   const tel = p && (p.telefone || '').replace(/\D/g, '');
   const extra = p && p.dados_extra && typeof p.dados_extra === 'object' ? p.dados_extra : null;
   const nomeEvento = (id) => (eventos.find((e) => e.id === id) || {}).nome || id;
+
+  // Respostas da pesquisa e do NPS (D1/D2/D3), quando existirem. `respostas` pode
+  // vir vazio — as duas abas tratam isso com um estado "ainda não respondeu".
+  const respostas = p && Array.isArray(p.respostas) ? p.respostas : [];
+  const pesquisa = respostas.find((r) => r && r.tipo === 'pesquisa') || null;
+  const npsDias = respostas
+    .filter((r) => r && /^nps_d\d+$/.test(r.tipo))
+    .sort((a, b) => a.tipo.localeCompare(b.tipo, 'pt-BR', { numeric: true }));
+  const sinal = p && p.sinal && typeof p.sinal === 'object' ? p.sinal : null;
 
   async function toggleCred() {
     if (!p || !onCredenciar) return;
@@ -204,6 +215,15 @@ export default function DetailModal({ participantId, eventos = [], readOnly, onC
                 </div>
               )}
 
+              {/* ===== Abas de topo: Perfil (ficha) · Pesquisa (ETHB) · NPS ===== */}
+              <div className="tabs tabs-top">
+                <button className={abaTop === 'perfil' ? 'active' : ''} onClick={() => setAbaTop('perfil')}>Perfil</button>
+                <button className={abaTop === 'pesquisa' ? 'active' : ''} onClick={() => setAbaTop('pesquisa')}>Pesquisa</button>
+                <button className={abaTop === 'nps' ? 'active' : ''} onClick={() => setAbaTop('nps')}>NPS{npsDias.length ? ` (${npsDias.length})` : ''}</button>
+              </div>
+
+              {abaTop === 'perfil' && (<>
+
               {/* ===== Qualificação: foco do ETHB é o possível comprador do Aurum ===== */}
               {p.tipo === 'comprador' && (
                 <section className="detail-sec">
@@ -213,6 +233,29 @@ export default function DetailModal({ participantId, eventos = [], readOnly, onC
                       <span className="dq-k">Possível comprador (Aurum)</span>
                       <span className="dq-v">{comprador ? 'SIM' : 'não'}</span>
                     </div>
+                  </div>
+                </section>
+              )}
+
+              {/* ===== Sinais comerciais (pesquisa ETHB) — bater o olho e ver se é forte
+                   candidato a comprar o Aurum. Fonte diferente do selo manual acima
+                   (aquele é marcado pela equipe; este vem das respostas da pessoa). ===== */}
+              {sinal && (
+                <section className="detail-sec">
+                  <div className="detail-sec-title">Sinais comerciais (pesquisa)</div>
+                  <div className="detail-badges" style={{ marginBottom: 10 }}>
+                    {sinal.ingresso && <span className={`detail-ingresso ing-${String(sinal.ingresso).toLowerCase()}`}>{sinal.ingresso}</span>}
+                    {sinal.origem && <span className="badge">Origem: {sinal.origem}</span>}
+                    {sinal.turma && <span className="badge turma">{sinal.turma}</span>}
+                    {sinal.grupo_diamante && <span className="badge">{sinal.grupo_diamante}</span>}
+                    {sinal.socio_vai_sozinho && <span className="badge">Sócio vai sozinho: {sinal.socio_vai_sozinho}</span>}
+                  </div>
+                  <div className="detail-sinais">
+                    <SinalPill label="Possível comprador" v={sinal.possivel_comprador} />
+                    <SinalPill label="Possível Aurum" v={sinal.possivel_aurum} />
+                    <SinalPill label="Renovação Aurum" v={sinal.possivel_renov_aurum} />
+                    <SinalPill label="Possível HM" v={sinal.possivel_hm} />
+                    <SinalPill label="Renovação HM" v={sinal.possivel_renov_hm} />
                   </div>
                 </section>
               )}
@@ -313,6 +356,58 @@ export default function DetailModal({ participantId, eventos = [], readOnly, onC
                   ))}
                 </div>
               )}
+
+              </>)}
+
+              {/* ===== Pesquisa ETHB: perguntas (frases longas) em cima, resposta discursiva
+                   destacada embaixo — é a parte que precisa de mais espaço para ler. ===== */}
+              {abaTop === 'pesquisa' && (
+                pesquisa ? (
+                  <div className="kvs">
+                    <div className="pesquisa-meta">
+                      Respondida{pesquisa.respondido_em ? ` em ${new Date(pesquisa.respondido_em).toLocaleString('pt-BR')}` : ''}
+                    </div>
+                    {Object.entries(pesquisa.respostas || {}).map(([pergunta, resp]) => (
+                      <div className="pq-item" key={pergunta}>
+                        <div className="pq-pergunta">{pergunta}</div>
+                        <div className="pq-resposta">{Array.isArray(resp) ? resp.join(', ') : String(resp ?? '—')}</div>
+                      </div>
+                    ))}
+                    {Object.keys(pesquisa.respostas || {}).length === 0 && (
+                      <div className="photo-empty">Respondeu, mas não há perguntas registradas.</div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="photo-empty">Ainda não respondeu à pesquisa do ETHB.</div>
+                )
+              )}
+
+              {/* ===== NPS: um card por dia que existir (D1/D2/D3) — nota em destaque
+                   no topo do card, textos abaixo. Precisa aguentar 1, 2 ou 3 dias. ===== */}
+              {abaTop === 'nps' && (
+                npsDias.length > 0 ? (
+                  <div className="nps-grid">
+                    {npsDias.map((d) => (
+                      <div className="nps-dia" key={d.tipo}>
+                        <div className="nps-dia-head">
+                          <span className="nps-dia-label">{`Dia ${(d.tipo.match(/\d+/) || ['?'])[0]}`}</span>
+                          <span className={`nps-nota ${notaFaixa(d.nota)}`} title="Nota do NPS (0 a 10)">
+                            {d.nota == null ? '—' : d.nota}
+                          </span>
+                        </div>
+                        {Object.entries(d.respostas || {}).map(([pergunta, resp]) => (
+                          <div className="pq-item" key={pergunta}>
+                            <div className="pq-pergunta">{pergunta}</div>
+                            <div className="pq-resposta">{Array.isArray(resp) ? resp.join(', ') : String(resp ?? '—')}</div>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="photo-empty">Ainda não respondeu ao NPS em nenhum dia.</div>
+                )
+              )}
             </>
           )}
         </div>
@@ -329,6 +424,21 @@ export default function DetailModal({ participantId, eventos = [], readOnly, onC
 function Kv({ rotulo, valor }) {
   if (valor == null || String(valor).trim() === '') return null;
   return <div className="kv"><span className="kv-k">{rotulo}</span><span className="kv-v">{String(valor)}</span></div>;
+}
+
+// Pílula SIM/não/— de um sinal comercial (possível comprador, Aurum, HM…).
+// `v` pode vir null/undefined quando a pesquisa não perguntou aquilo para esta pessoa.
+function SinalPill({ label, v }) {
+  if (v == null) return <span className="detail-sinal" title="Sem dado para este sinal"><b>—</b> {label}</span>;
+  return <span className={`detail-sinal ${v ? 'sim' : 'nao'}`}><b>{v ? 'SIM' : 'não'}</b> {label}</span>;
+}
+
+// Faixa de cor da nota do NPS (0-6 detrator, 7-8 neutro, 9-10 promotor) — padrão do mercado.
+function notaFaixa(n) {
+  if (n == null) return '';
+  if (n <= 6) return 'baixa';
+  if (n <= 8) return 'media';
+  return 'alta';
 }
 
 // Item do grid de "Dados do participante": rótulo em cima, valor embaixo.
