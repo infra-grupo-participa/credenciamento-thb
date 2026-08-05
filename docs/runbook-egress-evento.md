@@ -43,9 +43,11 @@ Validado em produção: `unchanged` responde 62 bytes, `since` inválido respond
 
 ## AMANHÃ, ANTES DE ABRIR O BALCÃO
 
-1. **Todos os operadores vão precisar logar de novo.** A sessão agora expira em
-   12h e a de hoje foi criada ontem. A senha é a mesma de sempre — só o login
-   que voltou a ser pedido. Avise a equipe para não parecer que "quebrou".
+1. **Todos os operadores vão precisar logar de novo, e o login tem que ser DE
+   MANHÃ — não na noite anterior.** A sessão expira 12h após o login. Quem logar
+   às 19h da véspera para "deixar pronto" vai ter a sessão vencendo às 7h, no
+   meio do balcão. Logando às 7h, ela cobre até as 19h. A senha é a mesma de
+   sempre; avise a equipe para o pedido de login não parecer que "quebrou".
 2. Abra o app em **um** aparelho e credencie uma pessoa de teste. A lista tem
    que atualizar nos outros aparelhos em até 5 segundos. Se atualizar, o delta
    está funcionando.
@@ -77,6 +79,23 @@ Confira em Deployments que o estado ficou `completed`.
 **Atenção:** reverter traz de volta o consumo de ~670 MB/dia. Só faça isso se o
 credenciamento estiver realmente quebrado — se for só lentidão, prefira subir o
 `POLL_MS`.
+
+## O que a auditoria adversarial encontrou (e já está corrigido)
+
+Uma revisão independente do próprio fix, antes do evento, achou três coisas —
+uma delas **anterior a tudo isto** e capaz de apagar credenciamento confirmado:
+
+1. **`flushFila` sobrescrevia a fila offline** (bug antigo, `src/offline.js`).
+   Ele lia a fila no início e regravava o snapshot no fim; como cada envio pode
+   pendurar até 12 s, num servidor lento o flush leva minutos — e tudo que o
+   operador enfileirava nesse meio-tempo era apagado. A tela dizia "salvo
+   offline", a pessoa entrava, e o banco nunca registrava. Sem aviso: o contador
+   de pendentes até diminuía. Corrigido: o flush re-lê a fila antes de gravar.
+2. **401 não enfileirava** — regressão da sessão de 12h. Credenciamento em voo no
+   instante da expiração evaporava depois do beep verde. Agora vai para a fila.
+3. **Scanner não contava como atividade** — regressão da pausa por ociosidade. Em
+   modo quiosque não há toque na tela, então a lista congelava e o beep de
+   duplicado deixava de soar. Agora cada leitura emite `chf:atividade`.
 
 ## Limitação conhecida: colisão de milissegundo
 
