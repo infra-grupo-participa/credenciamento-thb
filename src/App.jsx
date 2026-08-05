@@ -26,6 +26,12 @@ const POLL_MS = 5000;
 const OCIOSO_MS = 10 * 60 * 1000;
 // A lista de eventos muda uma vez por semana, não a cada 15 s.
 const POLL_EVENTOS_MS = 60000;
+// Rede de segurança do delta. Dois aparelhos podem gravar no mesmo milissegundo
+// (já há registros assim no banco), e nesse caso o `updated_at > since` do
+// servidor pode deixar uma linha para trás. De tempos em tempos a lista é refeita
+// inteira, então qualquer divergência morre em minutos em vez de durar o evento.
+// Custa ~40 kB por aparelho a cada 10 min; barato perto de exibir lista furada.
+const RECONCILIA_MS = 10 * 60 * 1000;
 
 const norm = (s) => (s || '').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 const initials = (n) => {
@@ -119,6 +125,7 @@ function Credenciamento({ operador, onLogout }) {
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
   const [pendentes, setPendentes] = useState(tamanhoFila());
   const fileRef = useRef(null);
+  const ultimoFullRef = useRef(0); // quando a lista inteira foi baixada pela última vez
   const searchRef = useRef(null);
   const maisRef = useRef(null);
 
@@ -176,7 +183,13 @@ function Credenciamento({ operador, onLogout }) {
   // Enquanto ninguém encosta na tela, nenhuma das duas listas consulta o servidor.
   const ocioso = useOcioso(OCIOSO_MS);
   // Ao voltar da pausa, ressincroniza na hora em vez de esperar o próximo tick.
-  useEffect(() => { if (!ocioso) qc.invalidateQueries({ queryKey: ['participantes'] }); }, [ocioso, qc]);
+  // Só na TRANSIÇÃO ocioso->ativo: sem o ref, este efeito também dispararia na
+  // montagem (quando `ocioso` já nasce false) e duplicaria a carga inicial.
+  const eraOciosoRef = useRef(false);
+  useEffect(() => {
+    if (!ocioso && eraOciosoRef.current) qc.invalidateQueries({ queryKey: ['participantes'] });
+    eraOciosoRef.current = ocioso;
+  }, [ocioso, qc]);
 
   const { data: eventosData } = useQuery({
     queryKey: ['eventos'], queryFn: api.eventos,
@@ -207,7 +220,13 @@ function Credenciamento({ operador, onLogout }) {
     // o servidor responde `unchanged` e mantemos o mesmo objeto (zero re-render).
     queryFn: async () => {
       const prev = qc.getQueryData(['participantes', eventoId]);
-      const d = await api.listar(eventoId, prev?.updatedAt, prev?.list?.length);
+      // A cada RECONCILIA_MS ignora o cache de propósito e refaz a lista inteira.
+      const agora = Date.now();
+      const reconciliar = agora - ultimoFullRef.current >= RECONCILIA_MS;
+      const d = reconciliar
+        ? await api.listar(eventoId)
+        : await api.listar(eventoId, prev?.updatedAt, prev?.list?.length);
+      if (d?.list) ultimoFullRef.current = agora; // veio lista cheia (pedida ou não)
       if (d?.unchanged && prev) return prev;
       // `delta`: vieram só as linhas alteradas — costura por id sobre a lista que
       // já está na mão. A ordem não importa aqui, a tela reordena sozinha.
