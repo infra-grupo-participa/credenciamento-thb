@@ -46,8 +46,45 @@ export function linhasExport(list, origin) {
       'É sócio (THB)': pega(ex, 'THB - É sócio'),
       'Credenciado': p.credenciado ? 'SIM' : 'NÃO',
       'Data credenciamento': p.dataCredenciamento,
+      // --- Qualificação comercial (vem do import da pesquisa/crachá) ---
+      // Ficam no FIM de propósito: quem exporta para conferir credenciamento
+      // continua vendo as colunas de sempre nas primeiras posições, e quem vai
+      // analisar lead rola para a direita. Sai tudo já cruzado, para o analista
+      // não ter de juntar planilha com planilha na mão.
+      'Lead score': typeof p.lead_score === 'number' ? p.lead_score : '',
+      'Temperatura': temperatura(p.lead_score),
+      'Respondeu pesquisa': p.pesquisa_ok ? 'SIM' : 'NÃO',
+      'Possível comprador (pesquisa)': sinalSN(p.sinal, 'possivel_comprador'),
+      'Possível Aurum': sinalSN(p.sinal, 'possivel_aurum'),
+      'Possível renovação Aurum': sinalSN(p.sinal, 'possivel_renov_aurum'),
+      'Possível HM': sinalSN(p.sinal, 'possivel_hm'),
+      'Possível renovação HM': sinalSN(p.sinal, 'possivel_renov_hm'),
+      'Origem/Instrução': (p.sinal && limpa(p.sinal.origem)) || '',
+      'Ingresso (planilha)': (p.sinal && limpa(p.sinal.ingresso)) || '',
+      'Sócio vai sozinho': (p.sinal && limpa(p.sinal.socio_vai_sozinho)) || '',
     };
   });
+}
+
+// Faixa de temperatura do lead. Mesmos cortes da tela, para a planilha e o app
+// nunca discordarem sobre quem está "quente".
+function temperatura(score) {
+  if (typeof score !== 'number' || score <= 0) return '';
+  if (score < 30) return 'FRIO';
+  if (score < 60) return 'MORNO';
+  if (score < 80) return 'QUENTE';
+  return 'MUITO QUENTE';
+}
+
+// Sinal comercial em SIM/NÃO. Diferencia "não" de "sem informação": o campo vem
+// null quando a planilha de origem trazia "-", e transformar isso em "NÃO"
+// afirmaria algo que ninguém verificou.
+function sinalSN(sinal, campo) {
+  if (!sinal || typeof sinal !== 'object') return '';
+  const v = sinal[campo];
+  if (v === true) return 'SIM';
+  if (v === false) return 'NÃO';
+  return '';
 }
 
 // Larguras das primeiras colunas (QR imagem/link, Lote, Nome, Tipo, E-mail, Telefone, Documento).

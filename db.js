@@ -347,9 +347,22 @@ const repo = {
   },
 
   async exportar(eventoId) {
-    let q = sb().from(TABELA).select(`${DETALHE},foto`).order('nome', { ascending: true });
+    // Traz os sinais comerciais junto (join pela FK participante_sinal).
+    // Aqui pode: o export é uma ação PONTUAL, disparada por clique — diferente da
+    // lista, que é rebaixada por polling a cada 5 s em vários aparelhos. É por isso
+    // que os sinais ficam fora do LIGHT mas entram aqui: o analista recebe tudo
+    // mastigado numa planilha sem que isso custe egress contínuo.
+    let q = sb().from(TABELA)
+      .select(`${DETALHE},foto,participante_sinal(ingresso,origem,turma,grupo_diamante,possivel_comprador,possivel_aurum,possivel_renov_aurum,possivel_hm,possivel_renov_hm,socio_vai_sozinho)`)
+      .order('nome', { ascending: true });
     if (eventoId) q = q.eq('evento_id', eventoId);
-    return unwrap(await q).map(shape);
+    return unwrap(await q).map((r) => {
+      // O supabase-js devolve o join como objeto (1:1) ou array conforme o caso;
+      // normaliza para um objeto só, para a planilha não depender disso.
+      const s = Array.isArray(r.participante_sinal) ? r.participante_sinal[0] : r.participante_sinal;
+      const { participante_sinal, ...resto } = r;
+      return { ...shape(resto), sinal: s || null };
+    });
   },
 
   // Histórico cross-evento da pessoa (mesma por documento/e-mail).
